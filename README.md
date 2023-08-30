@@ -1,8 +1,6 @@
-# PROTAC_screening_benchmark
+# PROTAC docking and virtual screening benchmark
 
-PROTAC docking and virtual screening benchmark
-
-Final_input:
+## Final_input:
 
 All the input files for the benchmark and reproducibility study
 
@@ -11,7 +9,7 @@ PROTAC_structure	#Files for crystal structure prediction benchmark
 PROTAC_screening	#Files for PROTAC virtual screening benchmark
 CRYSTAL_input		#Files for WDR5 PROTAC screening using PDB: 7JTP and 7Q2J as input
 
-Final_results:
+## Final_results:
 
 All the raw data files and analyzed data files. Including scripts to perform analysis.
 
@@ -24,9 +22,11 @@ Conformation_cluster	#Analysis of conformational clusters (using raw data files 
 lysine_analysis		#Analysis of lysine distances to multiprotein degradation complex (using raw data files of ICM)
 
 
-##################################
+## Reproduction of results
 
 To reproduce the results, the following steps need to be performed:
+
+- paste the analysis script in the folder (e.g. reproduction/PROTAC_structure/PROTAC_screening/etc.). The results of the screens should be in folders of the respective complex (e.g. VHL-BRD4BD1/CRBN-BRAF/etc.). The scripts can be run with the commands below.
 
 MOE:
 - Replace in method_4B_batch_three_body_method4B_XXXXX.svl "DIRECTORY" with the absolute path to the directory
@@ -49,12 +49,13 @@ PRosettaC:
 - Run the screening using:
 	docker run --user 0 --network host --rm -v /DIRECTORY/:/data/ -v /ROSETTA_FOLDER/:/rosetta/ -v /OUTPUT_DIR/:/output/ erovers/prosettac:latest /data/bash_script.sh
 
-##################################
+## Analysis of results
+
 To analyze the results, the following steps need to be performed:
 
 - paste the analysis script in the folder (e.g. reproduction/PROTAC_structure/PROTAC_screening/etc.). The results of the screens should be in folders of the respective complex (e.g. VHL-BRD4BD1/CRBN-BRAF/etc.). The scripts can be run with the commands below.
 
-Analysis PROTAC structure benchmark
+### Analysis PROTAC structure benchmark
 
 MOE:
 - PDB files of the complex are saved with: create_pdb_files.txt
@@ -67,7 +68,7 @@ ICM/Haddock/PRosttaC/AlphaFold
 	PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm
 
 
-Analysis PROTAC screening benchmark
+### Analysis PROTAC screening benchmark
 
 MOE:
 - Create an csv files of with all the output "4B_DCP_Summary_XXXX.txt"
@@ -78,14 +79,14 @@ ICM/PRosettaC:
 	PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm
 
 
-Analysis crystal input
+### Analysis crystal input
 
 MOE:
 - Create an csv files of with all the output "4B_DCP_Summary_XXXX.txt"
 - Match up the ligand IDs with activity (see example "PROTAC_MOE2.csv")
 
 
-Analysis conformation_cluster
+### Analysis conformation_cluster
 
 ICM:
 - Open ICM and run the script cluster_centers.icm in the directory
@@ -94,7 +95,8 @@ ICM:
 	PATH_TO_ICM_EXECUTABLE/icm -vlscluster cluster_conformations.icm
 
 
-Analysis lysine distances
+### Analysis lysine distances
+
 ICM:
 - Open ICM and run the script cluster_centers.icm in the directory
 	PATH_TO_ICM_EXECUTABLE/icm -vlscluster VHL_script.icm
