@@ -42,7 +42,7 @@ To reproduce the results, the following steps need to be performed:
 MOE:
 - Replace in method_4B_batch_three_body_method4B_XXXXX.svl "DIRECTORY" with the absolute path to the directory
 - Run the screening using:
-	- moebatch -mpu N -load three_body_csearch_method4B.svl -run method_4B_batch_three_body_method4B_XXXXX.svl
+	'moebatch -mpu N -load three_body_csearch_method4B.svl -run method_4B_batch_three_body_method4B_XXXXX.svl'
 
 ICM:
 - Run the screening using:
