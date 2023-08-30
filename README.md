@@ -42,23 +42,23 @@ To reproduce the results, the following steps need to be performed:
 MOE:
 - Replace in method_4B_batch_three_body_method4B_XXXXX.svl "DIRECTORY" with the absolute path to the directory
 - Run the screening using:
-	'moebatch -mpu N -load three_body_csearch_method4B.svl -run method_4B_batch_three_body_method4B_XXXXX.svl'
+  `moebatch -mpu N -load three_body_csearch_method4B.svl -run method_4B_batch_three_body_method4B_XXXXX.svl`
 
 ICM:
 - Run the screening using:
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster protacModel.icm E3.ob TARGET.ob ligand_1.icb protac=PROTAC.sdf scsRad=8. number=1 nrun=1 >& ligand_1.ou &
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster protacModel.icm E3.ob TARGET.ob ligand_1.icb protac=PROTAC.sdf scsRad=8. number=1 nrun=1 >& ligand_1.ou &`
 
 Change "number=" to the row index of the PROTAC screened (each PROTAC needs to be screened separately)
 Change "nrun=1" keep on one, but run command 5x
 
 - To combine results, open ICM:
-	- processPROTACsims "ligand_1*"
+	`processPROTACsims "ligand_1*"`
 
 PRosettaC:
 - Download docker image from https://hub.docker.com/r/erovers/prosettac
 - Download Rosetta from https://hub.docker.com/r/erovers/prosettac
 - Run the screening using:
-	- docker run --user 0 --network host --rm -v /DIRECTORY/:/data/ -v /ROSETTA_FOLDER/:/rosetta/ -v /OUTPUT_DIR/:/output/ erovers/prosettac:latest /data/bash_script.sh
+	`docker run --user 0 --network host --rm -v /DIRECTORY/:/data/ -v /ROSETTA_FOLDER/:/rosetta/ -v /OUTPUT_DIR/:/output/ erovers/prosettac:latest /data/bash_script.sh`
 
 ## Analysis of results
 
@@ -70,13 +70,13 @@ To analyze the results, the following steps need to be performed:
 
 MOE:
 - PDB files of the complex are saved with: create_pdb_files.txt
-	- PATH_TO_MOEBATCH_EXECUTABLE/bin/moebatch -mpu 3 -run create_pdb_files.txt
+	`PATH_TO_MOEBATCH_EXECUTABLE/bin/moebatch -mpu 3 -run create_pdb_files.txt`
 - An ICM script is run to calculate rmsd, rmsd_protac, rmsd_CH, rmsd_interface: script1.icm
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm`
 
 ICM/Haddock/PRosttaC/AlphaFold
 - An ICM script is run to calculate rmsd, rmsd_protac, rmsd_CH, rmsd_interface: script1.icm
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm`
 
 
 ### Analysis PROTAC screening benchmark
@@ -87,7 +87,7 @@ MOE:
 
 ICM/PRosettaC:
 - Open ICM and run script1.icm in the directory ("ICM" or "PRosettaC")
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster script1.icm`
 
 
 ### Analysis crystal input
@@ -101,17 +101,17 @@ MOE:
 
 ICM:
 - Open ICM and run the script cluster_centers.icm in the directory
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster cluster_centers.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster cluster_centers.icm`
 - Run the script cluster_conformations.icm in the same directory after the cluster_centers.icm is finished
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster cluster_conformations.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster cluster_conformations.icm`
 
 
 ### Analysis lysine distances
 
 ICM:
 - Open ICM and run the script cluster_centers.icm in the directory
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster VHL_script.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster VHL_script.icm`
 - Run the script cluster_conformations.icm in the same directory after the cluster_centers.icm is finished
-	- PATH_TO_ICM_EXECUTABLE/icm -vlscluster lys_analysis.icm
+	`PATH_TO_ICM_EXECUTABLE/icm -vlscluster lys_analysis.icm`
 
 
