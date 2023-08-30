@@ -4,22 +4,22 @@
 
 All the input files for the benchmark and reproducibility study
 
-Reproduction		#Files for reproducing the results of Drummond et al. & Zaidman et al.
-PROTAC_structure	#Files for crystal structure prediction benchmark
-PROTAC_screening	#Files for PROTAC virtual screening benchmark
-CRYSTAL_input		#Files for WDR5 PROTAC screening using PDB: 7JTP and 7Q2J as input
+- Reproduction			#Files for reproducing the results of Drummond et al. & Zaidman et al.
+- PROTAC_structure		#Files for crystal structure prediction benchmark
+- PROTAC_screening		#Files for PROTAC virtual screening benchmark
+- CRYSTAL_input			#Files for WDR5 PROTAC screening using PDB: 7JTP and 7Q2J as input
 
 ## Final_results:
 
 All the raw data files and analyzed data files. Including scripts to perform analysis.
 
-Reproduction		#Analyzed data files for the reproduction
-CPU_times		#CSV files with CPU times for runs
-PROTAC_structure	#Analyzed data files + analysis for the Crystal structure prediction benchmark
-PROTAC_screening	#Analyzed data files for the PROTAC virtual screening benchmark
-CRYSTAL_input		#Analyzed data files for PROTAC virtual screening using crystal structures as input (WDR5)
-Conformation_cluster	#Analysis of conformational clusters (using raw data files of ICM)			
-lysine_analysis		#Analysis of lysine distances to multiprotein degradation complex (using raw data files of ICM)
+- Reproduction			#Analyzed data files for the reproduction
+- CPU_times			#CSV files with CPU times for runs
+- PROTAC_structure		#Analyzed data files + analysis for the Crystal structure prediction benchmark
+- PROTAC_screening		#Analyzed data files for the PROTAC virtual screening benchmark
+- CRYSTAL_input			#Analyzed data files for PROTAC virtual screening using crystal structures as input (WDR5)
+- Conformation_cluster		#Analysis of conformational clusters (using raw data files of ICM)			
+- lysine_analysis		#Analysis of lysine distances to multiprotein degradation complex (using raw data files of ICM)
 
 
 ## Reproduction of results
