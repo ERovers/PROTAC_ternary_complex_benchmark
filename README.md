@@ -1,4 +1,4 @@
-# PROTAC docking and virtual screening benchmark
+# PROTAC ternary complex benchmark
 
 ## Final_input:
 
