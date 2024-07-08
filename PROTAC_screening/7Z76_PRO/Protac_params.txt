@@ -1,0 +1,10 @@
+Structures: 5NVX_3.pdb 7Z78.pdb
+Chains: C A
+Heads: HeadA.sdf HeadB.sdf
+Anchor atoms: 45 48
+Protac: Linkers.smi
+Full: True
+ClusterName: SLURM
+RMSD: 4
+cutoff_local: 200
+num_rosetta: 50

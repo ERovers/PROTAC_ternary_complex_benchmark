@@ -1,0 +1,12 @@
+#!/bin/sh
+#if 0
+$MOE/bin/moebatch -run $0 $*
+exit
+#endif
+#svl
+
+function three_body_csearch_method4B;
+
+local function main []
+    three_body_csearch_method4B [rc1:'5NVX_2.pdb', rc2:'4QL1_2.pdb', inmdb:'protac.sdf', cmethod:'LowModeMD', dbout:'three_body_method4B_7JTP.mdb', dbvopen_out:0];
+endfunction

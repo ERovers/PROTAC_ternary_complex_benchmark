@@ -1,0 +1,10 @@
+Structures: 6W74_2.pdb 3GEN.pdb
+Chains: A A
+Heads: HeadA.sdf HeadB.sdf
+Anchor atoms: 29 5
+Protac: Linkers.smi
+Full: True
+ClusterName: SLURM
+RMSD: 4
+cutoff_local: 200
+num_rosetta: 50

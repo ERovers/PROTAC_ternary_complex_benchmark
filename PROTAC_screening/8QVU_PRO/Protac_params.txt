@@ -1,0 +1,10 @@
+Structures: 8BDL_2.pdb 8QUG.pdb
+Chains: C A
+Heads: HeadA.sdf HeadB.sdf
+Anchor atoms: 15 48
+Protac: Linkers.smi
+Full: True
+ClusterName: SLURM
+RMSD: 4
+cutoff_local: 200
+num_rosetta: 50
