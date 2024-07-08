@@ -1,0 +1,10 @@
+Structures: CRBN.pdb BRD4.pdb
+Chains: B C
+Heads: HeadA.sdf HeadB.sdf
+Anchor atoms: 1 17
+Protac: Linkers.smi
+Full: True
+ClusterName: SLURM
+RMSD: 4
+cutoff_local: 200
+num_rosetta: 50

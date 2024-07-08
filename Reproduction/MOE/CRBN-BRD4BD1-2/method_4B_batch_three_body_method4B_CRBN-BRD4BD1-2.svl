@@ -1,0 +1,15 @@
+#!/bin/sh
+#if 0
+$MOE/bin/moebatch -run $0 $*
+exit
+#endif
+#svl
+
+// Instructions: moebatch -mpu N -load three_body_csearch_method4B.svl -run method_4B_batch_three_body_method4B_CRBN-BRD4BD1-2.svl
+//      [N in -mpu N is the number of parallel processes (& MOE tokens) to use]
+
+function three_body_csearch_method4B;
+
+local function main []
+    three_body_csearch_method4B [rc1:'/home/erovers/scratch/Repro/CRBN-BRD4BD1/CRBN.moe', rc2:'/home/erovers/scratch/Repro/CRBN-BRD4BD1/BRD4BD1.moe', inmdb:'/home/erovers/scratch/Repro/CRBN-BRD4BD1/PROTAC.mdb', cmethod:'LowModeMD', dbout:'three_body_method4B_CRBN-BRD4BD1-2.mdb', dbvopen_out:0];
+endfunction

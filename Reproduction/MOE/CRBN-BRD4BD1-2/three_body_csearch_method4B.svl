@@ -1,0 +1,4531 @@
+#svl
+//	three_body_csearch_method4B.svl	Protein-Protein Docking + lig confs
+//
+//	28-apr-2022 (md) Added RC settings and buttons
+//	28-apr-2022 (md) Combine individual 4B Summary files into one, if needed
+//	28-apr-2022 (md) Can specify Born/elebuffer in generate_batch_file
+//	27-apr-2022 (md) More control over Wash options with SMILES/SDF
+//	27-apr-2022 (md) Reverting to original mccs (better for bad mismatches)
+//	26-apr-2022 (md) Fix for nulls in BESTCLIQUES
+//	18-apr-2022 (md) _is_file_MDB instead of io_Is_MDB (file-locking)
+//	13-apr-2022 (md) PROTAC SMILES & SDF inputs added (auto-washed too);
+//			 Added -mpu to Instructions in generate_batch_file;
+//			 LowModeMD is now default Conformations: option
+//	12-apr-2022 (md) Try all css in match_protac_binders/mccs
+//	19-jan-2022 (md) Removed unminimized scoring unless opt.premin_score=1
+//	14-dec-2021 (md) Added global fcns binder_rmsd and protac_overlap
+//	03-dec-2021 (md) A PPD 2nd arg to rigid_bb_min fixes binders in situ
+//	24-nov-2021 (md) Added pan_protein_conf_cluster
+//	16-nov-2021 (md) Fix in rigid_bb_min for sol + multimer Rec1 or Rec2
+//	05-nov-2021 (md) Try to maintain PROTAC names in match_protac_binders
+//	27-oct-2021 (md) Delete LP (eg. from SiteFinder) in match_protac_binders
+//	21-oct-2021 (md) Stochastic mode deprecated
+//	06-oct-2021 (md) Automatically split runs with 100s of PROTACs
+//	13-sep-2021 (md) Prevent potential stereoinversions in output MDB
+//	24-aug-2021 (md) Fix if first biased P-P MDB is empty
+//	21-jul-2021 (md) Use $Where for mpu_batch error reporting;
+//			 Keep waters stay with proteins in rigid_bb_min
+//	20-jul-2021 (md) Adjust As-Is w/no mseqs in PROTAC MDB slightly
+//	13-jul-2021 (md) fcopy --> fcopydel (in case temp files remain in CWD);
+//			 Adjust LowModeMD RMSD for 2020 (more in line with 2019)
+//	25-jun-2021 (md) Fix for copying null input fields in As-Is mode
+//	22-jun-2021 (md) sanity check for As-Is w/no mseqs in PROTAC MDB
+//	02-jun-2021 (md) Fix for Keep waters
+//	27-may-2021 (md) Covalent degraders stay bound if input complex is bound
+//	26-may-2021 (md) Retain waters in Set named Keep
+//	18-may-2021 (md) Fixed same atom order edge case in match_protac_binders
+//	16-apr-2021 (md) Updated P_P_DOCK_DEFAULTS for MOE2020.0901
+//	08-apr-2021 (md) Various cosmetic & usability improvements
+//	15-mar-2021 (md) Hs out of rigid sets in match_protac_binders again
+//	02-mar-2021 (md) Clean up a) pot_Setup with MPU code & b) pare_back
+//	09-feb-2021 (md) Allow for cofactors (any lig with an atom named COFA)
+//	28-dec-2020 (md) Fold db_propatch_dimers.svl into this SVL
+//	22-dec-2020 (md) Hs back in match_protac_binder Sets
+//	08-dec-2020 (md) Use modenv to avoid having to load this SVL in the GUI
+//	07-dec-2020 (md) Less aggressive atom_fp (for partially matched rings)
+//	04-dec-2020 (md) Fix for MakeNewBond
+//	03-dec-2020 (md) Fix in match_protac_binders with double/triple bonds
+//	01-dec-2020 (md) Compatibility with 2020 P-P Dock
+//	30-nov-2020 (md) Fixed opt.rmsd collision (ConfSearch vs Ligand Core);
+//			 match_protac_binder Sets no longer have Hs
+//	25-nov-2020 (md) Removed competing MPU loops in double_cluster
+//	24-nov-2020 (md) Delete intermediate PPD and csearch MDBs
+//	23-nov-2020 (md) Fix for Stochastic and multiple PROTACs
+//	20-nov-2020 (md) Restructure and MPUized ternary complex formation loop
+//	12-nov-2020 (md) Delete solvent before P-P Docking
+//	29-oct-2020 (md) MPUized generate_conformations
+//	26-oct-2020 (md) Replace fdelete with _fdelete
+//	23-oct-2020 (md) Added MPU to: Biased P-P Docking, protein_conf_cluster,
+//			 double_cluster
+//	13-oct-2020 (md) Incorporated MCS in function match_protac_binders
+//			 [no more SMILES]
+//	11-sep-2020 (kk;MOLSIS) avoid an error of No such field in database
+//	28-aug-2020 (md) Improved handling of mseq for double_cluster
+//	27-aug-2020 (md) Fix for bias + pregen [Complex 1/2 hyd_patch SA]
+//	27-aug-2020 (md) Copy mseq from csearch_tmp to mdb for multiple PROTACs
+//	15-jul-2020 (md) Bias is default; 4b --> 4B
+//	08-jan-2020 (md) Fix for missing mseq in double_cluster
+//	03-jan-2020 (md) Fix for multiple PROTACs (uniq mseqs; double_clust)
+//	13-dec-2019 (md) Added double-clustered results
+//	30-sep-2019 (md) Fix for symmetric SMILES strings
+//	23-sep-2019 (md) Try both permutations of apply_core_geometry
+//	23-sep-2019 (md) Keep Rigid Sets during Core MM
+//	13-sep-2019 (md) Actually match crystal binder coords
+//	22-aug-2019 (md) Fix in logic for sanity_check (PROTAC vs R/C 1&2)
+//	15-aug-2019 (md) Reinstated oldsmiles for sulfone etc. matching
+//	14-aug-2019 (md) Turn off Chair confs only (never intended to be on)
+//	12-aug-2019 (md) For Biased P-P Docking, also do the Unbiased docking
+//			 and lump the poses into the concatenated results
+//	12-aug-2019 (md) Change filters to Ligand Core RMSD & Max_all_all
+//	23-jul-2019 (md) Automatically pare back rigid areas for small linkers
+//	19-jul-2019 (md) Method 4B: Both binders are rigid during ConfSearch
+//	19-jul-2019 (md) Fix for multiple input PROTACs with LowModeMD
+//	28-feb-2019 (md) Improved checks for db_propatch_dimers
+//	22-jan-2019 (md) Core RMSD default to 1.6 [for 4E and 4F filter sets];
+//			 hyd_any generalized to hyd_hyd and/or hyd_any
+//	30-jul-2018 (md) Fixed biased hyd patch areas implementation
+//	23-jul-2018 (md) Added more output messages for moebatch; write
+//			 interpocket to output MDB; fix Extract SMILES bug;
+//			 write hyd patch areas combined in biased P-P docking
+//	20-jun-2018 (md) Added a default pp_in for Batch File compatibility
+//	16-jun-2018 (md) Bugfix for unbiased docking
+//	15-jun-2018 (md) Bugfix for Batch File (default opts enabled)
+//	13-jun-2018 (md) Batch File and Outfiles options enabled
+//	29-may-2018 (md) PLIFs disabled
+//	22-may-2018 (md) Fix to hyd_any/calc patch statistics logic; fix output
+//			 mdb bug; delete intermediate mdbs by default
+//	27-apr-2018 (md) v1 completed
+//	19-mar-2018 (md) Created
+//
+//
+//    Description:
+//
+//	This Three-Body Modeling method produces putative poses of ternary
+//	complexes by first running Protein-Protein Docking of two protein-ligand
+//	complexes, one of the target with the binding moiety of the final
+//	PROTAC molecule, and the other of the E3 ligase with its binding moiety.
+//	The PROTAC molecule is also provided, and conformations are generated
+//	if not provided. The two components are assembled and then scored.
+//
+//	Method 4B: The binders used during P-P Docking are held rigid during
+//	the Conformational Search, to restrain the binding motif during the
+//	formation of the Ternary Complexes.
+//
+//
+// COPYRIGHT (C) 2021 CHEMICAL COMPUTING GROUP ULC ("CCG").
+// ALL RIGHTS RESERVED.
+//
+// PERMISSION TO USE, COPY, MODIFY AND DISTRIBUTE THIS SOFTWARE IS HEREBY
+// GRANTED PROVIDED THAT: (1) UNMODIFIED OR FUNCTIONALLY EQUIVALENT SOFTWARE
+// DERIVED FROM THIS SOFTWARE MUST CONTAIN THIS NOTICE; (2) ALL CODE DERIVED
+// FROM THIS SOFTWARE MUST ACKNOWLEDGE THE AUTHOR(S) AND INSTITUTION(S); (3)
+// THE NAMES OF THE AUTHOR(S) AND INSTITUTION(S) NOT BE USED IN ADVERTISING
+// OR PUBLICITY PERTAINING TO THIS SOFTWARE WITHOUT SPECIFIC WRITTEN PRIOR
+// PERMISSION; (4) ALL CODE DERIVED FROM THIS SOFTWARE BE EXECUTED WITH THE
+// MOLECULAR OPERATING ENVIRONMENT LICENSED FROM CCG.
+//
+// CCG DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+// ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, AND IN NO EVENT
+// SHALL CCG BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+// ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER
+// IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+// OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+//
+//------------------------------------------------------------------------------
+#set main'three_body_csearch_method4B_GUI'
+//------------------------------------------------------------------------------
+// MOE functions to include
+//------------------------------------------------------------------------------
+function Superpose;
+function MM;
+function conf_Search;
+function ConfSearch;
+function fwrite_MDLMOL;
+function DockAtoms;
+function db_Merge;
+function msurf_ProteinPatch;
+function AtomSurfaceArea;
+function _pro_CalculateRMSD;
+function db_ReorderFields;
+function db_ExportDB;
+function hclust_tree, hclust_id;
+function conf_ExpandAutomorphisms, conf_NormalizeAtoms;
+function summary_report, combine_reports;
+function three_body_score4, make_volume_grid, generate_batch_file, pare_back;
+function db_conf_cluster, match_protac_binders, add_field_bubblehelps;
+function _mdlq_AromatizeAtoms, mdlq_Open, mdlq_MatchFirstCTAB, mdlq_Close;
+function io_Is_MDL, __db_ImportASCII_DetectOptions, db_ImportASCII, db_ImportSD;
+function _is_file_MDB, WashMDB, db_Minimize;
+function saveSettings, loadSettings, stdSettings;
+//------------------------------------------------------------------------------
+//
+//
+//------------------------------------------------------------------------------
+// statics
+//------------------------------------------------------------------------------
+static wkey, csearch_cycles;
+//------------------------------------------------------------------------------
+// defaults and constants
+//------------------------------------------------------------------------------
+
+const DISTANCE_MATCH = 5;	// |Ligand centroid distance - Pocket dists|
+const NEIGHBOR_PATCH_DISTS= 10;	// In Bias, dist for patches "near" pocket
+const DUP_THRESHOLD = 4;	// RMSD threshold for "biased" duplicate check
+const DEFAULT_THRESHOLD = 10;	// RMSD threshold for protein-based clustering
+const AUTO_CHUNK = 200000;	// Turn on split if more than this # of combos
+
+const THREE_BODY_CSEARCH4_DEFAULTS = [
+    dbout:		'three_body_method4B.mdb',
+    dbvopen_out:	1,
+    do_pp:		1,	// Perform P-P docking on-the-fly
+    pregen:		0,	// Read P-P results from an MDB
+    bias:		1,	// Perform multiple P-P runs
+    do_pp_out:		'p_p_dock_three_body_method4B_out.mdb',
+    min_out:		0,	// Rigid-body minimization of final results
+    keep_int:		0,	// Keep intermediates that don't pass filters
+    clust:		1,	// Cluster Results
+    pp_in:		'',	// Null token as default
+    threed:		1,	// SMILES/SDF Only: make 3D input coordinates
+    prot:		'Dominant',	//SMILES/SDF Only: Wash Protonation
+
+	// conformation searching and filtering options
+    outfiles:		0,	// Split output MDB entries into PDBs+SDF
+    maxit:		10000,
+//    S_all_max:		10000,
+//    S_bbone_max:	2500,
+    totsa:		670,		// Max of R1/R2 & R2/R1 all_all
+    corermsd:		3.5,		// Core1&2 RMSD before/after MM
+    patches:		1,		// Calculate Protein Dimer patch stats
+    cutoff:		999,		// Conf Search Energy Window
+    gtest:		0.100		// RMSD Gradient in Conf Search
+];
+
+const CSEARCH_TMP_MDB   = 'csearch_tmp.mdb';
+const CSEARCH_DEFAULTS = [
+    outfile     : 'tmp_csearch.mdb',
+    infile      : '',
+    rot_amide   : 0,
+    rot_double  : 1,
+    invert_sp3  : 0,
+    chair_only  : 0,
+    pot_charge  : 1,
+    method      : 'LowModeMD',
+    rigid       : 1,
+    rigid_mode  : 'Set',
+    rigid_set   : 'rigid*',
+    rigidHOH    : 0,
+    rigidOH     : 0,
+    maxfail     : 100,
+    maxit       : 10000,
+    maxiter     : 10000,
+    gtest       : 0.100,
+    mm_maxit    : 500,
+    cutoff      : 999,
+    cutoff_chi  : 1,
+    rmsd        : 3.5,		// Equivalent to older 4B versions
+    rmsd_H      : 0,
+    free_shape  : 0,
+    useQM       : 0
+];
+
+const CIMPORT_DEFAULTS=[
+    outputFile                : 'conf_out.mdb',
+    outputFileSplit           : 600,
+    outputFileOpenDBV         : 0,
+    outputRefine              : 0,
+    outputPacked              : 0,
+    outputStrainLimit         : 4,
+    outputConformationLimit   : 250,
+    logmdb                    : 'conf_log.mdb',
+    newFragmentFile           : 'conf_unk.mdb',
+    newFragmentReset          : 0,
+    mode                      : 'normal',
+    logmdbkey                 : 0,
+    forceTransAmide           : 1,
+    forceTransEster           : 1,
+    forceChair                : 1,
+    forceTransConjugatedEster : 1,
+    forceTransVinyl           : 1,
+    forceOriginalCC           : 1,
+    forceOriginalCN           : 0,
+    forceOriginalNN           : 0,
+    forceOriginalChirality    : 1,
+    forceTransUrea            : 1,
+    fragStrainLimit           : 4,
+    skelStrainLimit           : 6,
+    mmStrainLimit             : 7,
+    mmFailureLimit            : 30,
+    mmIterationLimit          : 500,
+    mmIterationLimitMM        : 200,
+    mmGradientTestMM          : 0.01,
+    mmSuperposeRMSD           : 0.15,
+    mmConformationLimit       : 300,
+    saveFragmentSkeleton      : 0,
+    noStochasticSearch        : 0,
+    sampleFailures            : 1,
+    timeout                   : 600,
+    silent                    : 0
+];
+
+const VDW_ONLY_POTSETUP =  [ 
+	vdwEnable:1, eleEnable:0, strEnable:0, angEnable:0, 
+	torEnable:0, oopEnable:0, stbEnable:0, 	resEnable:0
+];
+
+const ELE_ONLY_POTSETUP =  [ 
+	vdwEnable:0, eleEnable:1, strEnable:0, angEnable:0, 
+	torEnable:0, oopEnable:0, stbEnable:0, resEnable:0
+];
+const POT_SETUP_ALL = [
+	vdwEnable:1, eleEnable:1, strEnable:1, angEnable:1, 
+	torEnable:1, oopEnable:1, stbEnable:1, resEnable:1
+	
+];
+
+const MDLQ_OPT = [literal_query:0, literal_search:0, use_Rgroups:0];
+
+    // These values are mostly taken from the Batch File for P-P Docking made
+    // via the GUI.
+
+const P_P_DOCK_DEFAULTS = [
+	outrmsd: 0,
+	sel_ent_only_rec: 0,
+	sel_ent_only: 0,
+	wall: [ '', 0, [ 0, 0, 0 ], [ 1000000, 1000000, 1000000 ], 0 ],
+	csearch: 0,
+	confGenMethod: 'None',
+	ignoreMseq: 1,
+	retainData: 1,
+	dockmode:'Protein-Protein',	// 2020
+	placement: 'Protein-Protein',
+	placement_opt: [
+	    maxpose : 100,
+	    remaxpose : 100,
+	    scoring : 'None',
+	    rescoring : 'None',
+	    csearch : 0,
+	    confsearch : 3,
+	    pp_gen_plif : 0,		// Don't generate PLIFs
+	    pp_tdelta : 3,		// 2019 setting (compatibility)
+	    pp_pose_limit : 1000,
+	    pp_Ntop : 10000,
+	    pp_maxpose : 100,
+	    pp_hpatch : 1,		// Use Hydrophobic Patch potential
+	    pp_auto_fab_rec : 0,
+	    pp_auto_fab_lig : 0,
+	    silent:1,			// 2020
+	    mode:'Protein-Protein',	// 2020
+	    ppset:1,			// 2020, maybe only relevant for GUI?
+	    pp_lig_site_set : []	// Just an index number [2019 only?]
+	],
+	scoring: 'None',
+	scoring_opt: [silent:1  ],	// 2020 [2019 is null]
+	dup_placement: 1,
+	maxpose: 100,
+	refine: 'Rigid Body',
+	refine_opt: [
+	    fixrec : 'Fix',
+	    rigidlig : 1,
+	    ed_map : 'Fo',
+	    ed_f : 'Simulated',
+	    ed_phi : 'Simulated',
+	    ed_f2 : 'Simulated',
+	    ed_path : '',
+	    ed_res : 2.5,
+	    ed_sfdata : [ [  ], [  ], [  ], 'Simulated', 'Simulated', 'Fo' ],
+	    ed_surflevelD : 3,
+	    cutoff : 6,
+	    wholeres : 1,
+	    mmgbvi : 1,
+	    packsidechains : 1,
+	    rigidPlanar : 0,
+	    tether : 10,
+	    gtest : 0.01,
+	    maxit : 500,
+	    OverrideSetup : 1,
+	    silent:1,			// 2020
+	    k_potl : 100,
+	    roffset : 0.4 ],
+	rescoring: 'None',
+	rescoring_opt: [silent:1  ],	// 2020 [2019 is null]
+	dup_refine: 1,
+	remaxpose: 100,
+	descexpr: '',
+	rxnimponly: 0,			// 2020
+	receptor_mfield: '',
+	ligand_mfield: '',
+	rxnFile: '',
+	opendbv: 0,
+	rxsite: [  ],			// Looks to be for covdock -- irrelevant
+	edsupport: 1,
+	verbose:0,			// 2020
+	ed_data: [],			// Updated for 2020.0901
+	check_pose_geom: 0,
+	multiLigand: 0,
+	need_dmat: 0,
+	gen_plif: 0,			// Don't generate PLIFs
+	silent: 0,
+	verbose: 0,			// 2020
+	tempDB: ''			// 2020 has 1 -- probably irrelevant
+];
+
+const PATCH_FIELDS = [ // New fields describing the dASA upon complexation
+    'Rec1_hyd_covered_by_Rec2_hyd',
+    'Rec1_hyd_covered_by_Rec2_any',
+    'Rec1_hyd_covered_by_Rec2_all',
+    'Rec1_any_covered_by_Rec2_hyd',
+    'Rec1_any_covered_by_Rec2_any',
+    'Rec1_any_covered_by_Rec2_all',
+    'Rec1_all_covered_by_Rec2_hyd',
+    'Rec1_all_covered_by_Rec2_any',
+    'Rec1_all_covered_by_Rec2_all',
+    'Rec2_hyd_covered_by_Rec1_hyd',
+    'Rec2_hyd_covered_by_Rec1_any',
+    'Rec2_hyd_covered_by_Rec1_all',
+    'Rec2_any_covered_by_Rec1_hyd',
+    'Rec2_any_covered_by_Rec1_any',
+    'Rec2_any_covered_by_Rec1_all',
+    'Rec2_all_covered_by_Rec1_hyd',
+    'Rec2_all_covered_by_Rec1_any',
+    'Rec2_all_covered_by_Rec1_all'
+];
+
+const THREE_BODY_SCORE_FIELDS = tr [
+    ['Etot',			'float'],
+    ['Eint_Rec1Rec2', 		'float'],
+    ['Eint_Rec1Rec2_vdw',	'float'],
+    ['Eint_Rec1Rec2_ele',	'float'],
+    ['Eint_Rec1_lig',		'float'], 
+    ['Eint_Rec1_lig_vdw',	'float'], 
+    ['Eint_Rec1_lig_ele',	'float'],
+    ['Eint_Rec2_lig',		'float'], 
+    ['Eint_Rec2_lig_vdw',	'float'], 
+    ['Eint_Rec2_lig_ele',	'float'],
+    ['E_lig',			'float'],
+    ['E_lig0',			'float'],
+    ['Eint_Rec_lig', 		'float'],
+    ['Eint_Rec_lig_vdw', 	'float'],
+    ['Eint_Rec_lig_ele',	'float'],
+    ['S_all',			'float'],
+    ['S_bbone', 		'float']
+];
+
+//------------------------------------------------------------------------------
+//============================ utilities =======================================
+//------------------------------------------------------------------------------
+// function apply_core_geometry
+//	ref_at: Atom keys of the SMILES match with the desired coordinates
+//	query_at: Atom keys of the SMILES match with arbitrary coordinates
+//	conf_at: Atom keys of the whole molecule with arbitrary coordinates
+//
+// This function will place query_at onto ref_at, bringing the rest of conf_at
+// too, repeat for the second set of coordinates, and then do a series of
+// increasingly relaxed minimizations. 	
+//
+//------------------------------------------------------------------------------
+local function apply_core_geometry [ref_at1, query_at1, conf_at, ref_at2,
+    query_at2]
+
+	// Superpose whole molecule onto first core
+
+    local [msd1, R1, t1] = Superpose [[aPos ref_at1, aPos query_at1]];
+    local npos  = app add (R1(2) * [aPos conf_at - t1(2)]) + t1(1);
+    aSetPos[conf_at, npos];
+
+	// Superpose the second match onto its reference position, but only
+	// move the match itself
+
+    local [msd2, R2, t2] = Superpose [[aPos ref_at2, aPos query_at2]];
+    npos = app add (R2(2) * [aPos query_at2 - t2(2)]) + t2(1);
+    aSetPos [query_at2, npos];
+    
+	// push to private system to perform ligand minimization
+    local core_idx = indicesof [cat [query_at1, query_at2], conf_at];
+    local sub_idx = diff [igen length conf_at, core_idx];
+    local rigid1_idx = indicesof [query_at1, conf_at];
+    local rigid2_idx = indicesof [query_at2, conf_at];
+    local pdata = SystemPush conf_at;
+    local c_atoms = Atoms[];
+    local opos = aPos c_atoms;
+    aSetFixed[c_atoms, 1];
+    aSetFixed [c_atoms[sub_idx], 0];
+    aSetTether[c_atoms[sub_idx], aPos c_atoms[sub_idx], 100, 0, 0.25];
+    local rigid_m = zero conf_at;
+    rigid_m = put [rigid_m, rigid1_idx, 1];
+    rigid_m = put [rigid_m, rigid2_idx, 2];
+    MM[gtest:1.0, verbose:0, aRigidBody:rigid_m];
+    aSetFixed[c_atoms, 0];
+    aSetTether[c_atoms, aPos c_atoms, 10, 0, 0.1];
+    MM[gtest:1.0, verbose:0, aRigidBody:rigid_m];
+    aSetTether[c_atoms, aPos c_atoms, 0, 0, 0];
+    MM[gtest:1.0, verbose:0, aRigidBody:rigid_m];
+    npos = aPos c_atoms;
+    local rmsd = sqrt ((add add sqr (opos - npos)) * invz l_length npos);
+    oDestroy Chains[];
+    SystemPop pdata;
+
+    aSetPos[conf_at, npos];
+    return rmsd;
+endfunction
+//------------------------------------------------------------------------------
+// function output_pdb_sdf
+//	Split an output MDB entry into two PDBs (one per receptor) and an
+//	SDF for the core1+ligand+core2, with a file name based on the
+//	name of the MDB and the entry number. Slightly modified from Method 2.
+//------------------------------------------------------------------------------
+local function output_pdb_sdf [opt, cur_ent, mdb]
+    local entnum = indexof [cur_ent, db_Entries mdb];
+    if isnull opt.filedir then
+	opt.filedir = cd[];	// cmdline-entry
+    endif
+    local outbase = tok_cat [opt.filedir, '/', fbase ftail opt.dbout, '_Ent',
+	totok entnum, '_'];
+    local moedata = db_ReadFields [mdb, cur_ent, 'moe'];
+    local pdata = SystemPush[];
+    local c = first _moe_Create moedata;
+    fwrite_PDB [tok_cat [outbase, 'Rec1.pdb'], oGetCollection 'Receptor1'];
+    fwrite_PDB [tok_cat [outbase, 'Rec2.pdb'], oGetCollection 'Receptor2'];
+    fwrite_MDLMOL [tok_cat [outbase, 'lig.sdf'], oGetCollection 'ligand'];
+    oDestroy c;
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function make_volume_grid atoms
+//	Given atom keys, make the volume grid for calculating Overlaps.
+//------------------------------------------------------------------------------
+local function make_volume_grid atoms
+    local X= aPos atoms;
+    local R = aRadius atoms;
+    local bmsk = aBackbone atoms;
+
+    local minX = floor (app min X-3);   
+    local maxX = ceil  (app max X+3);
+    local shape = ((app igen (1+(ceil (maxX - minX))))-1)+minX;
+    local grid0  = zero igen mul app length shape;
+    local grid1_all = notnot grid_addgauss[grid0,shape,10,3,X,R];
+    local grid1_bb  = notnot grid_addgauss[grid0,shape,10,3,X||[bmsk],R|bmsk];
+    return [shape, grid1_all, grid1_bb];
+endfunction
+//------------------------------------------------------------------------------
+// function get_energy
+// 	Get energy of 'atoms' using various pot_Setup settings
+//------------------------------------------------------------------------------
+local function get_energy atoms;
+    local opot_setup = pot_Setup[];
+    aSetInert[Atoms[], 1];
+    aSetInert[atoms, 0];
+    pot_Setup VDW_ONLY_POTSETUP;
+    local Evdw = first Potential[dX:0];
+    pot_Setup ELE_ONLY_POTSETUP;
+    local Eele = first Potential[dX:0];
+    pot_Setup opot_setup;
+    return [Evdw+Eele, Evdw, Eele];
+endfunction 
+//------------------------------------------------------------------------------
+// function three_body_score4 opts
+//	Calculate all the energetic and overlap scores for a final ternary
+//	complex. All necessary data is passed via the opts.
+//------------------------------------------------------------------------------
+local function three_body_score4 opts
+
+    opts = tagcat [opts, THREE_BODY_CSEARCH4_DEFAULTS];
+
+	// mostly use sets to get what you want
+    local rec1_atoms    = oGetCollection 'Receptor1';
+    local rec2_atoms    = oGetCollection 'Receptor2';
+    local ligand_atoms  = oGetCollection 'ligand';
+    local all_atoms     = opts.all_atoms;
+
+    local score = [];
+
+	// 1. volume overlap 
+    local rec1_grid     = opts.rec1_grid;	// rec1 volume grid
+    local rec1_grid_bb  = opts.rec1_grid_bb;	// rec1 volume grid
+    local rec1_shape    = opts.rec1_shape;	// rec1 volume shape
+    if ((isnull rec1_grid)or(isnull rec1_shape)or(isnull rec1_grid_bb)) then 
+	[rec1_shape, rec1_grid, rec1_grid_bb] = make_volume_grid rec1_atoms;
+    endif
+    local rec2_bbone = rec2_atoms | aBackbone rec2_atoms;
+    local grid0      = zero rec1_grid;
+    local rec2_grid  = notnot grid_addgauss[
+	grid0, rec1_shape, 10, 3, aPos rec2_atoms, aRadius rec2_atoms
+    ];
+    local rec2_grid_bb = notnot grid_addgauss[
+	grid0, rec1_shape, 10, 3, aPos rec2_bbone, aRadius rec2_bbone
+    ];
+
+    score.S_all    = add (rec1_grid and rec2_grid);
+    score.S_bbone  = add (rec1_grid_bb and rec2_grid_bb);
+
+// Removed filtering by these quantities, due to goodness of P-P docking
+	// if volume scores eceed thresholds, return [] (fail)
+//    if (score.S_all>opts.S_all_max) or (score.S_bbone>opts.S_bbone_max) then
+//	return [];
+//    endif
+
+	//. 2. energy scores
+    aSetFixed[all_atoms, 0];
+    local osetup = pot_Setup[]; // record old pot_Setup to restore
+    local rec_atoms = cat[rec1_atoms, rec2_atoms];
+    local [E_rec1, E_rec1_vdw, E_rec1_ele]		= get_energy rec1_atoms;
+    local [E_rec2, E_rec2_vdw, E_rec2_ele]	    	= get_energy rec2_atoms;
+    local [E_rec1_rec2,E_rec1_rec2_vdw,E_rec1_rec2_ele]	= get_energy rec_atoms;
+    local [E_rec1_lig, E_rec1_lig_vdw, E_rec1_lig_ele]  = get_energy cat[
+	rec1_atoms, ligand_atoms
+    ];
+    local [E_rec2_lig, E_rec2_lig_vdw, E_rec2_lig_ele]  = get_energy cat[
+	rec2_atoms, ligand_atoms
+    ]; 
+    local [E_lig, E_lig_vdw, E_lig_ele] = get_energy ligand_atoms;
+    local [E_cmplx, E_cmplx_vdw,E_cmplx_ele]=get_energy cat [
+	ligand_atoms, rec_atoms
+    ];
+    local Eab, Eab_vdw, Eab_ele;
+
+    score.Eint_Rec1Rec2     =  E_rec1_rec2 -( E_rec1 + E_rec2);
+    score.Eint_Rec1Rec2_vdw =  E_rec1_rec2_vdw -( E_rec1_vdw + E_rec2_vdw);
+    score.Eint_Rec1Rec2_ele =  E_rec1_rec2_ele -( E_rec1_ele + E_rec2_ele);
+
+    score.Eint_Rec_lig	    =  E_cmplx - (E_rec1_rec2 + E_lig);
+    score.Eint_Rec_lig_vdw  =  E_cmplx_vdw - (E_rec1_rec2_vdw + E_lig_vdw);
+    score.Eint_Rec_lig_ele  =  E_cmplx_ele - (E_rec1_rec2_ele + E_lig_ele);
+
+    score.Eint_Rec1_lig	    =  E_rec1_lig - (E_rec1 + E_lig);
+    score.Eint_Rec1_lig_vdw =  E_rec1_lig_vdw - (E_rec1_vdw + E_lig_vdw);
+    score.Eint_Rec1_lig_ele =  E_rec1_lig_ele - (E_rec1_ele + E_lig_ele);
+
+    score.Eint_Rec2_lig     =  E_rec2_lig - (E_rec2 + E_lig);
+    score.Eint_Rec2_lig_vdw =  E_rec2_lig_vdw - (E_rec2_vdw + E_lig_vdw);
+    score.Eint_Rec2_lig_ele =  E_rec2_lig_ele - (E_rec2_ele + E_lig_ele);
+
+
+	// 2. E_lig0: energy of ligand at nearest in vacuo minimum
+    local pdata = SystemPush ligand_atoms;
+    MM[gtest:1, verbose:0];
+    local E_lig0 = first Potential[dX:0];// E of ligand(nearest minimum)
+    SystemPop pdata;
+
+    score.E_lig  = E_lig;
+    score.E_lig0 = E_lig0; 
+
+	// restore system to all active/old fixed
+    aSetInert[all_atoms, 0];
+    aSetFixed[all_atoms, 0];
+    pot_Setup osetup;
+
+    score.Etot = first Potential[];
+    return score;
+endfunction
+//==============================================================================
+//----------------------------- PARALLELIZATION --------------------------------
+//==============================================================================
+//------------------------------------------------------------------------------
+// function __smp_pp_dock [moe, recsite, ligsite, outmdb, pp_opts]
+//
+//	The globalized version that creates the chains (including Sets) from
+//	a passed moe vector and then sends a single PPD run to a node.
+//	No return (instead the outmdb is what we need).
+//------------------------------------------------------------------------------
+global function __smp_pp_dock [moe, recsite, ligsite, outmdb, pp_opts]
+    local pdata = SystemPush[];
+    local c = first _moe_Create [moe];
+    if MOE_VERSION<2020 then
+	DockAtoms [oGetCollection 'complex1', oGetCollection recsite,
+	    oGetCollection 'complex2', outmdb, pp_opts];
+    else
+	DockAtoms [oGetCollection 'complex1', oGetCollection recsite,
+	    [atom_sel:oGetCollection 'complex2', site_sel:oGetCollection
+	     ligsite], outmdb, pp_opts];
+    endif
+    oDestroy c;
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function __make_combos [combos, dockmdb, ligmdb, finalmdb, x, opt]
+//
+//	The globalized function (for MPUing) that combines a subset of the
+//	valid combos of P-P poses from dockmdb with PROTAC conformations from
+//	ligmdb and writes them to a finalmdb. x is used to determine which
+//	other fields from ligmdb to copy over, and opt is used for the scoring
+//	functions et al.
+//------------------------------------------------------------------------------
+global function __make_combos [combos, dockmdb, ligmdb, finalmdb, x, opt]
+    local pdata = SystemPush[];
+    local patchflds = findmatch ['*_covered_by_*', first db_Fields dockmdb];
+    local mfield = db_FirstFieldType [ligmdb, 'molecule'];
+    local ents = db_Entries dockmdb;
+    local ligents = db_Entries ligmdb;
+    local oldmseq = 0;	// Flag for rerunning match_protac_binders
+    local oldpp = 0;	// Flag for reloading P-P pair
+    local cov1 = 0;	// Flag for covalent binder on complex1
+    local cov2 = 0;	// Flag for covalent binder on complex2
+    local i = 1;
+    local indices1, indices2, match1, match2, copts;
+    while i <= length combos loop
+
+	    // Create the proteins of the potentially valid combo, if it's a new
+	    // P-P pose
+
+	if oldpp <> combos(i)(3) then
+	    oldpp = combos(i)(3);
+	    oldmseq = 0;
+	    oDestroy Chains[];
+	    local c = mol_Create cat db_ReadFields [dockmdb, ents(combos(i)(3)),
+		'mol'];
+	    oSetCollection ['Receptor1', _Atoms 'rec'];
+	    local lig1 = cat cAtoms c | aClassRLS cat cAtoms c == 'lig';
+	    local cofa1 = uniq aMoleculeNumber (lig1 | aName lig1 == 'COFA');
+	    lig1 = lig1 | not apt m_join [aMoleculeNumber lig1, [cofa1]];
+	    local c2 = mol_Create cat db_ReadFields [dockmdb,
+		ents(combos(i)(3)), 'receptor'];
+	    oSetCollection ['Receptor2', cat cAtoms c2 | aClassRLS cat cAtoms
+		c2 == 'rec'];
+	    local lig2 = cat cAtoms c2 | aClassRLS cat cAtoms c2 == 'lig';
+	    local cofa2 = uniq aMoleculeNumber (lig2 | aName lig2 == 'COFA');
+	    lig2 = lig2 | not apt m_join [aMoleculeNumber lig2, [cofa2]];
+
+		// Unbond Covalent binders, for rebinding to the PROTAC later
+
+	    if aClassRLS diff [uniq cat aBonds lig1, lig1] === 'rec' then
+		cov1 = 1;
+		local rec_cov1 = diff [uniq cat aBonds lig1, lig1];
+		local lig_cov1 = lig1 | apt m_join[lig1, [cat aBonds rec_cov1]];
+		Unbond [lig_cov1, rec_cov1];
+	    else
+		cov1 = 0;	// Reset
+	    endif
+
+	    if aClassRLS diff [uniq cat aBonds lig2, lig2] === 'rec' then
+		cov2 = 1;
+		local rec_cov2 = diff [uniq cat aBonds lig2, lig2];
+		local lig_cov2 = lig2 | apt m_join[lig2, [cat aBonds rec_cov2]];
+		Unbond [lig_cov2, rec_cov2];
+	    else
+		cov2 = 0;	// Reset
+	    endif
+
+		// Get the Protein Patch data for this combo
+    
+	    local dockrec = db_Read [dockmdb, ents(combos(i)(3))];
+	    dockrec = tag [patchflds, tagget [dockrec, patchflds]];
+    
+		// Beautify
+    
+	    aSetHidden [_Atoms 'rec', 1];
+	    rSetRibbonEnable [_Residues 'rec', 1];
+	    rSetRibbonMode [_Residues 'rec', 'tube'];
+	    rSetRibbonColorBy [_Residues 'rec', 'chain'];
+	endif
+    
+	    // Put lig core 1 onto xtal1, then special relaxation protocol, then
+	    // repeat for core 2. First find the matches with MCS.
+
+	local currmseq = db_ReadFields [ligmdb, ligents(combos(i)(4)), 'mseq'];
+	if currmseq <> oldmseq then
+	    local ligindices1 = match_protac_binders [dockmdb, cat db_ReadFields
+		[ligmdb, ligents(combos(i)(4)), mfield], 'protac1'];
+	    local ligindices2 = match_protac_binders [dockmdb, cat db_ReadFields
+		[ligmdb, ligents(combos(i)(4)), mfield], 'protac2'];
+	    indices1 = match_protac_binders [dockmdb, cat db_ReadFields [ligmdb,
+		ligents(combos(i)(4)), mfield], 'xtal1', combos(i)(3)];
+	    indices2 = match_protac_binders [dockmdb, cat db_ReadFields [ligmdb,
+		ligents(combos(i)(4)), mfield], 'xtal2', combos(i)(3)];
+	    match1 = (lig1 | not aIsLight lig1)[indices1];
+	    match2 = (lig2 | not aIsLight lig2)[indices2];
+	    oldmseq = currmseq;
+	endif
+	local lig_c = mol_Create cat db_ReadFields [ligmdb,
+	    ligents(combos(i)(4)), mfield];
+	local ligat = cat cAtoms lig_c;
+	local lig_match1 = (ligat | not aIsLight ligat)[ligindices1];
+	local lig_match2 = (ligat | not aIsLight ligat)[ligindices2];
+
+	    // Superpose the two ligand matches onto the P-P positions,
+	    // then restrained minimization. Because the RMSD depends
+	    // on which core is "first," try both approaches.
+
+	UndoSnapshot[];
+	local rmsd1 = apply_core_geometry [match1, lig_match1, ligat, match2,
+	    lig_match2];
+	Undo[];
+	local rmsd2 = apply_core_geometry [match2, lig_match2, ligat, match1,
+	    lig_match1];
+	if rmsd2 < rmsd1 then	// Second is better -- NFA
+	    local rmsd = rmsd2;
+	else			// First is better -- revert & repeat
+	    Undo[];
+	    rmsd1 = apply_core_geometry [match1, lig_match1, ligat, match2,
+		lig_match2];
+	    rmsd = rmsd1;
+	endif;
+	UndoReset[];
+
+	    // Move on to the next one if the RMSD is too high
+
+	if rmsd > opt.corermsd then
+	    oDestroy lig_c;
+	    i = i + 1;
+	    continue;
+	endif
+
+	    // Rebond covalent degraders
+
+	if cov1 then
+	    local new_lig_cov1 = lig_match1(indexof [lig_cov1, match1]);
+	    Bond [rec_cov1, new_lig_cov1];
+	    pot_FinalizeModel[];
+	    ligat = ligat | oValid ligat;
+	endif
+	if cov2 then
+	    local new_lig_cov2 = lig_match2(indexof [lig_cov2, match2]);
+	    Bond [rec_cov2, new_lig_cov2];
+	    pot_FinalizeModel[];
+	    ligat = ligat | oValid ligat;
+	endif
+
+	    // The original P-P ligands are still there, as they're
+	    // needed for the next go, but we don't want them for
+	    // scoring and writing. Send what is needed to a private
+	    // system, for scoring/writing. Also fix PROTAC Hs that might
+	    // be poorly placed at stereocenters.
+
+	local write_at = diff [Atoms[], cat [lig1, lig2]];
+	local chi = write_at | aRSChiral write_at > 0;
+	oDestroy (aBonds chi || aElement aBonds chi == 'H');
+	pot_FinalizeModel[];
+	write_at = diff [Atoms[], cat [lig1, lig2]];
+	ligat = ligat | oValid ligat;
+	oSetCollection ['ligand', ligat];
+	View[];
+	local c_write = _moe_Extract [write_at];
+	local newent = db_Write [finalmdb, 0, tag ['moe', [c_write]]];
+	db_Write [finalmdb, newent, tag ['ligand', [mol_Extract oGetCollection
+	    'ligand']]];
+	db_Write [finalmdb, newent, tag ['mseq_lig', combos(i)(4)]];
+	db_Write [finalmdb, newent, tag ['Ligand Core RMSD', rmsd]];
+	oDestroy lig_c;
+
+	    // Write other potentially important values
+
+	if notnull x then		// Only for As-Is
+	    local other_record = db_Read [ligmdb, ligents(combos(i)(4))];
+	    other_record = other_record[x];
+	    other_record = other_record | app notnull other_record;
+	    local [origfld, origftype] = db_Fields ligmdb;
+	    apt db_EnsureField [finalmdb, origfld[x], origftype[x]];
+	    db_Write [finalmdb, newent, other_record];
+	endif
+	if notnull findmatch ['*hyd_patch SA*', first db_Fields finalmdb] then
+	    local ppsa = cat db_ReadFields [dockmdb, ents(combos(i)(3)),
+		'Complex 1 hyd_patch SA'];
+	    db_Write [finalmdb, newent, tag ['Complex 1 hyd_patch SA', ppsa]];
+	    ppsa = cat db_ReadFields [dockmdb, ents(combos(i)(3)),
+		'Complex 2 hyd_patch SA'];
+	    db_Write [finalmdb, newent, tag ['Complex 2 hyd_patch SA', ppsa]];
+	endif
+	if notnull findmatch ['dE', first db_Fields ligmdb] then
+	    local de = cat db_ReadFields [ligmdb, ligents(combos(i)(4)), 'dE'];
+	    db_Write [finalmdb, newent, tag ['dE', de]];
+	endif
+	db_Write [finalmdb, newent, tag ['mseq', currmseq]];
+	db_Write [finalmdb, newent, dockrec];
+	db_Write [finalmdb, newent, tag ['interpocket', combos(i)(1)]];
+	db_Write [finalmdb, newent, tag ['intraligand', combos(i)(2)]];
+	db_Write [finalmdb, newent, tag ['P-P Dock Pose #', combos(i)(3)]];
+	i = i + 1;
+    endloop
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function __protein_conf_cluster [mdb, ent, followents]
+//
+//	The globalized version that is provided an entry to analyze, as well as
+//	all entry keys that follow in the MDB. The RMSDs for that row of the
+//	all-against-all matrix is returned.
+//------------------------------------------------------------------------------
+global function __protein_conf_cluster [mdb, ent, followents]
+    local pdata = SystemPush[];
+    mdb = db_Open [mdb, 'read'];
+    local c = mol_Create cat db_ReadFields [mdb, ent, 'mol'];
+    local j = 1;
+    local rmsds;
+    while j <= length followents loop
+	local d = mol_Create cat db_ReadFields [mdb, followents(j), 'mol'];
+	local rmsd = first _pro_CalculateRMSD [Chains[]];
+	rmsds(j) = rmsd;
+	oDestroy d;
+	j = j + 1;
+    endloop
+    oDestroy c;
+    SystemPop pdata;
+    return rmsds;
+endfunction
+//------------------------------------------------------------------------------
+// function patch_calc
+//
+//	Helper function to process an MDB field name, break it down into what's
+//	being asked for, do the before-and-after complexation SASA comparison,
+//	and return the value.
+//------------------------------------------------------------------------------
+local function patch_calc [outfld, hyd_at, nega_at, posi_at, any_at, all_at]
+
+	// Get the input atoms for the ASA calcs based on the MDB fieldname
+
+    local at = [hyd:hyd_at, neg:nega_at, pos:posi_at, any:any_at, all:all_at];
+    local str_out = wordsplit [string outfld, "_"];
+    local x_a = toint last str_out(1);
+    local x_b = toint last str_out(5);
+    local at_a = uniq cat get [cat tagget [at, token str_out(2)], x_a];
+    local at_b = uniq cat get [cat tagget [at, token str_out(6)], x_b];
+
+	// Calculate the free and complexed ASAs
+
+    local asa_a_free = add AtomSurfaceArea [at_a, 1.4, 1, all_at(x_a)];
+    local asa_a_comp = add AtomSurfaceArea [at_a, 1.4, 1, cat [all_at(x_a),
+	at_b]];
+    return (asa_a_free - asa_a_comp);
+endfunction
+//------------------------------------------------------------------------------
+// function __calc_propatch_dimers_4B record
+//
+//	The globalized version that, when given an entry's record, will
+//	calculate and return the dSASA patch values
+//------------------------------------------------------------------------------
+global function __calc_propatch_dimers_4B record
+    local pdata = SystemPush [];
+    local c = mol_Create record.mol;
+    c = cat [c, mol_Create record.receptor];
+
+	// Find out the protein chains. If there are more than two of
+	// them, then try to take the two nearest a ligand. If there's no
+	// ligand, then just grab the first two. This is obviously easy to
+	// fool, but likely won't happen very often.
+
+    local pro_c = c | (app max rIsAmino cResidues c);
+    if length pro_c > 2 then
+	local lig = _Atoms 'lig';
+	local cofa = uniq aMoleculeNumber (lig | aName lig == 'COFA');
+	lig = lig | not apt m_join [aMoleculeNumber lig, [cofa]];
+	if length lig then		// Ligand found -- get nearest
+	    local j = 1;
+	    local mindist = rep [99, length pro_c];
+	    while j <= length pro_c loop
+		mindist(j) = min cat aDist [lig, [cat cAtoms pro_c(j)]];
+		j = j + 1;
+	    endloop
+	    pro_c = get [pro_c, keep [x_sort mindist, 2]];
+	else				// No lig
+	    pro_c = [pro_c(1), pro_c(2)];
+	endif
+    endif
+
+	// Calculate the protein patches, and categorize them by type
+
+    local pp = msurf_ProteinPatch [pro_c];
+    local trpp = tr pp;
+    local hyd = pp | tagvals trpp(4) == 'hyd';
+    local nega = pp | tagvals trpp(4) == 'neg';
+    local posi = pp | tagvals trpp(4) == 'pos';
+
+	// Get the atoms for each type, and segregate them by chain.
+	// Also gather atoms that belong to any patch type (by chain)
+	// and all atoms in each protein chain.
+
+    local hyd_at = uniq cat tagvals app last hyd;
+    hyd_at = [hyd_at | aChain hyd_at == pro_c(1),
+	hyd_at | aChain hyd_at == pro_c(2)];
+    local nega_at = uniq cat tagvals app last nega;
+    nega_at = [nega_at | aChain nega_at == pro_c(1),
+	nega_at | aChain nega_at == pro_c(2)];
+    local posi_at = uniq cat tagvals app last posi;
+    posi_at = [posi_at | aChain posi_at == pro_c(1),
+	posi_at | aChain posi_at == pro_c(2)];
+    local any_at = [cat app first [hyd_at, nega_at, posi_at],
+	cat app second [hyd_at, nega_at, posi_at]];
+    local all_at = [cat cAtoms pro_c(1), cat cAtoms pro_c(2)];
+
+	// Evaluate all the various combinations and return them
+
+    j = 1;
+    local result;
+    while j <= length PATCH_FIELDS loop
+	result(j) = tag [PATCH_FIELDS(j), patch_calc [PATCH_FIELDS(j), hyd_at,
+	    nega_at, posi_at, any_at, all_at]];
+	j = j + 1;
+    endloop
+    SystemPop pdata;
+    return result;
+endfunction
+//------------------------------------------------------------------------------
+// function smp_pp_dock [recsites, ligsites, x, outmdbs, pp_opts]
+//
+//	Preamble function for the MPU'd version of Biased P-P Docking
+//	(essentially parallelizing DockAtoms, with a bit of extra bookkeeping)
+//------------------------------------------------------------------------------
+local function smp_pp_dock [recsites, ligsites, x, outmdbs, pp_opts]
+
+	// Variables for initialization, script distribution, receiving output,
+	// etc.
+
+    if MPU_HOSTCOUNT>1 then
+	local orig_tc = (pot_Setup []).threadCount;
+	mpu_call [igen (MPU_HOSTCOUNT-1)+1, 'exe_setpriority', [[0,1]]];
+	pot_Setup [threadCount:1];
+    endif
+    local res, code, seqno, udata, i, j, c;
+    local cmd = 'call';
+    local curr_itr = 0;
+    local msg = 0;
+    local numsuccess = 0;
+    local task_id = task_key -1;
+    local src = (modenv[]).filename;
+    mpu_load [igen MPU_HOSTCOUNT, [src]];
+    local moe = _moe_Extract [Chains[]];
+
+	// Loop through the Biased P-P Dock jobs to do, MPU-style
+
+    loop
+	[res, code, seqno, udata] = [[], [], [], []];
+	if cmd <> '' then
+	    curr_itr = inc curr_itr;
+	    if curr_itr > length outmdbs then
+		cmd = '';
+	    else
+		i = x(curr_itr)(1);
+		j = x(curr_itr)(2);
+		pp_opts.placement_opt.pp_lig_site_pos = aPos oGetCollection
+		    ligsites(j);	// 2019
+		pp_opts.placement_opt.ppsite_pos = aPos oGetCollection
+		    ligsites(j);	// 2020
+	    endif
+	endif
+
+	[res, code, seqno, udata] = mpu_batch [cmd,
+	    '__smp_pp_dock',
+	    [moe, recsites(i), ligsites(j), outmdbs(curr_itr), pp_opts]
+	    ];
+	sleep 0.1;	// Give it a chance to get to the other hosts
+
+	if code === 'error' then
+	    msg = twrite ['[{6}]: error: {}: {}\n', seqno, code, res];
+	elseif code === '' then		// Results coming back -- just notify
+	    numsuccess = numsuccess + istrue seqno;
+	    write token swrite ['Completed Protein-Protein Docking Run {} '
+		'of {}\n', numsuccess, length outmdbs];
+	elseif code === 'eof' then
+	    break;
+	endif
+    endloop
+    if notnull orig_tc then pot_Setup [threadCount:orig_tc]; endif
+endfunction
+//------------------------------------------------------------------------------
+// function propatch_dimers_4B mdb
+//
+//	Integrated from db_propatch_dimers -- preamble function before running
+//	the patch statistics calculation in parallel
+//------------------------------------------------------------------------------
+local function propatch_dimers_4B mdb
+    
+	// Variables for initialization, script distribution, receiving output,
+	// etc.
+
+    if MPU_HOSTCOUNT>1 then
+	local orig_tc = (pot_Setup []).threadCount;
+	mpu_call [igen (MPU_HOSTCOUNT-1)+1, 'exe_setpriority', [[0,1]]];
+	pot_Setup [threadCount:1];
+    endif
+
+    local ents = db_Entries mdb;
+    apt db_EnsureField [mdb, PATCH_FIELDS, 'float'];
+    local res, code, seqno, udata, record;
+    local cmd = 'call';
+    local ent = 0;
+    local msg = 0;
+    local task_id = task_key -1;
+    local src = (modenv[]).filename;
+    mpu_load [igen MPU_HOSTCOUNT, [src]];
+
+	// Loop through the database, MPU-style
+
+    loop
+	if cmd <> '' then
+	    ent = db_NextEntry [mdb, ent];
+	    if isfalse ent then
+		cmd = '';
+	    else
+		record = db_Read [mdb, ent];
+	    endif
+	endif
+
+	[res, code, seqno, udata] = mpu_batch [
+	    cmd, '__calc_propatch_dimers_4B', record
+	];
+	sleep 0.1;	// Give it a chance to get to the other hosts
+
+	if code === 'error' then
+	    msg = twrite ['[{6}]: error: {}: {}\n', seqno, code, res];
+	elseif code === '' then		// Results coming back
+	    if mod [seqno, 50] == 0 or seqno == 1 then
+		write token swrite ['Analyzing Protein-Protein Dimer Patches,'
+		    ' entry {} out of {}\n', seqno, length ents];
+	    endif
+	    apt db_Write [mdb, ents(seqno), res];
+	elseif code === 'eof' then
+	    write twrite 'Protein Patch Analysis complete\n';
+	    break;
+	endif
+    endloop
+
+    if notnull orig_tc then pot_Setup [threadCount:orig_tc]; endif
+endfunction
+//=============================================================================
+//               Modified from bronkerbosch_atombased.svl
+//=============================================================================
+static CLIQUES, MINSIZE, BG1, BG2;
+
+const MCCSOPT = [ size: 3,  // minimum sizee of mccs 
+		  exh:  1,  // if 0, only mccs containing 
+			    // at least one ring are found 
+		  frgs: []  // common fragment smarts
+		];
+
+    //  Generate a 'atom type' for each atom.
+    //  atoms of the same type can be matched
+
+// Version before Dec 07, 2020
+/*
+local function atom_fp atoms
+    return apt tok_cat[ aElement atoms, 
+			//aGeometry atoms, (md)
+			//totok aInRing atoms,
+			//totok aInHRing atoms,
+		        totok aFCharge atoms,
+			totok aDegree atoms,
+			//totok aHeavyValence atoms, (md)
+			totok aRingBondCount atoms
+		    ];
+endfunction
+*/
+// Version after Dec 07, 2020
+local function atom_fp atoms
+    return apt tok_cat[ aElement atoms, 
+//			aGeometry atoms,		(md)
+//			totok aInRing atoms,		(md)
+//			totok aInHRing atoms,		(md)
+			totok aIn3Ring atoms,//		(md)
+			totok aIn4Ring atoms,//		(md)
+			totok aIn5Ring atoms,//		(md)
+			totok aIn6Ring atoms,//		(md)
+			totok aIn7Ring atoms,//		(md)
+			totok aIn8Ring atoms,//		(md)
+		        totok aFCharge atoms,//		(md)
+			totok aDegree atoms//		(md)
+//			totok aHeavyValence atoms, (md)
+//			totok aRingBondCount atoms
+		    ];
+endfunction
+
+
+local function correspondence_G [atoms1, atoms2]
+
+      //  Build the Correspondence graph of the two mols
+    local bg1 = BondGraph atoms1;
+    local bg2 = BondGraph atoms2;
+    
+    local cor_M = apt eqE [atom_fp atoms1, nest atom_fp atoms2];
+    local cor_G = app tr app uext apt cat
+      [igen length atoms1, nest nest igen length atoms2];
+    cor_G = cat (cor_G || cor_M);
+
+      //  throw out non-matching type combis
+      //  Don't wrap the following code into a apt app tr app based one-liner!
+      //  customers & support will need to  follow what goes on at some point!
+    local cor_nbrlist;
+    local i,j, b_1, b_2;
+    for i in igen length cor_G loop
+	for j in igen length cor_G loop
+		  //  If any of the atom indices occurrs twice: continue
+		  //  (mapping a atom twice does not make sense)
+            if cor_G(i)(1) === cor_G(j)(1) or cor_G(i)(2) === cor_G(j)(2) then
+		continue;
+	    else
+		  // are the mapped atom pairs connected by a bond?
+		b_1 = notnot indexof [cor_G(i)(1), bg1(cor_G(j)(1))];
+		b_2 = notnot indexof [cor_G(i)(2), bg2(cor_G(j)(2))];
+		  //  if the pairs are both connected or 
+		  //  both disconnected
+		if b_1 === b_2 then
+		    cor_nbrlist(i) = append [cor_nbrlist(i), j];
+		endif
+	    endif
+        endloop
+    endloop
+    return [cor_G, cor_nbrlist];
+endfunction
+
+local function bronkerb [ R, P, X, nbr_list, cor_G]; //(ma)DEBUG , m1, m2, r]
+    // We search for CONNECTED Substructures only!
+    // P: canidates for extention
+    // R: current subgraph matching
+    // X: (?) exclusion list for current recursion (?)
+      // GAIN SPEED: exit if minimum clique size can no longer be reached
+    if ((add app length [R, P]) < MINSIZE) then return; endif
+
+      // exit if clique already found
+    if length CLIQUES > 0 then 
+	local c = app length apt join [nest R, CLIQUES];
+	if anytrue (c > 2) then return;
+	endif
+    endif
+
+    if alltrue app isnull [P, X] then
+	MINSIZE = max [MINSIZE, length R ];
+	CLIQUES = append [CLIQUES, R];
+	return;
+    endif
+
+      // GAIN SPEED: choose a pivot vertex u:
+      // -must be in union (P, X)
+      // -must have a maximum of neighbors
+
+    local PuX = uniq cat [P,X];
+      //  choose the pivot node
+    local u = get [PuX, x_max app length nbr_list[PuX]];
+    local nodelist = diff [P, get [nbr_list, u]];
+	  //  exclude mappings that are no neighbors of
+	  //  the current substructure!
+	  //  We additionally check if the neighbors of the
+	  //  substructure have the allowed correspondence! 
+
+    if length R > 0 then 
+	  // Get the SubGraph Atom indices of the current clique (sgs_idx)
+	local sga_idx = tr get [cor_G, R];
+	  // the neighbor atom indices of each sga;
+	local nbr_idx = app cat apt get [[BG1, BG2], sga_idx ];
+	  // remove atoms from nbrs that are already in sga
+        local [nbrs1, nbrs2] = app uniq apt diff [nbr_idx, sga_idx];
+	  // Now map that back to Cor_G
+	local m = apt indicesof [tr get [cor_G, P], [nbrs1, nbrs2]];
+	m = not app isnull apt add m;
+	nodelist = P | m;
+	  // Check if the candidates in nodelist are 
+	  // complete Cor_G neighbors from R
+	local cor_info = app length apt join [nest R, get [nbr_list, nodelist]];
+	nodelist = nodelist | (cor_info == length R);
+    endif
+
+    if length nodelist === 0 and length R >= MINSIZE then
+	MINSIZE = max [MINSIZE, length R ];
+	CLIQUES = append [CLIQUES, R];
+	return;
+    endif;
+
+
+    local node;
+    for node in nodelist loop
+          //  exclude neighbors of node
+        local nbrs = nbr_list(node);
+        bronkerb [ uniq cat [R, node], 
+                   join [P, nbrs],
+                   join [X, nbrs],
+                   nbr_list,
+                   cor_G
+                 ];
+	P = diff [P, node];
+        X = cat [X, node];
+    endloop
+endfunction
+
+local function mccs [m1, m2, opt]
+    //local [minsize, exh, frgs] = app second tagcat [opt, MCCSOPT];
+    opt = tagcat [opt, MCCSOPT];
+
+    // Get rid of Hydrogen
+    m1 = m1 | aElement m1 <> 'H';
+    m2 = m2 | aElement m2 <> 'H';
+    // initialize vars
+    BG1 = app sort BondGraph m1;
+    BG2 = app sort BondGraph m2;
+
+    MINSIZE = opt.size;
+    CLIQUES = [];
+        // Whenever we find a mcs that's
+        // larger than min, we are done!
+    local min = (min [length m1, length m2])/2;
+        // Set up Correspondence graph
+    local [cor_G, cor_nbr_list ] = correspondence_G [m1, m2];
+        // initialize BK vars
+    local P = igen length cor_G;  // candidate nodes 
+    local R = [];		  // current clique 
+    local X = [];		  // exclusion list
+    local substr;                 // common substructures found
+
+    local css = [], r1,r2;
+    if not length opt.frgs then
+
+	// get a list of common Scaffolds
+	// and feed them into the BK. Only if that does not
+	// find the mcs, start the BK from scratch!
+
+	r1 = apt get [ nest m1, cat graph_scycle_list BG1];
+	r2 = apt get [ nest m2, cat graph_scycle_list BG2];
+
+	if alltrue app length [r1, r2] then 
+	    local blks1,blks2, s1,s2 ;
+	    // find annelated rings and add them to s1/s2
+	    local rep1 = [cat rep [r1, length r1], stretch [r1, length r1]];
+	    local rep2 = [cat rep [r2, length r2], stretch [r2, length r2]];
+    
+	    blks1 = apt mget [apt cat rep1, app length apt join rep1 == 2];
+	    blks2 = apt mget [apt cat rep2, app length apt join rep2 == 2];
+	    blks1 = uniq (blks1 | not app isnull blks1);
+	    blks1 = uniq (blks2 | not app isnull blks2);
+	    s1 = app sm_ExtractUnique uniq cat [r1, blks1];
+	    s2 = app sm_ExtractUnique uniq cat [r2, blks2];
+	    css = cat [css, join [s1, s2]];
+	    css = uniq css | uniq css <> '';
+		// the largest common structure first
+	    css = css[reverse rank tok_length css];
+	else
+	    css = [];
+	endif
+    else
+	css = opt.frgs;
+    endif;
+
+    // initialize BK vars
+    P = igen length cor_G;  // candidate nodes 
+    R = [];		  // current clique 
+    X = [];		  // exclusion list
+
+    // loop over the Schuffenhauer scaffold mappings
+    local c;
+    for c in css loop
+	// Get the schuff. mappings 
+	local sm1 = sm_MatchAtoms [ c, m1];
+	local sm2 = sm_MatchAtoms [ c, m2];
+	sm1 = sm1 | app length sm1 <> 0;
+	sm2 = sm2 | app length sm2 <> 0;
+
+	// loop over multiple matchings
+	local c1, c2;
+	for c1 in sm1 loop
+	    for c2 in sm2 loop
+
+		// Get atom indices (aidx) of atoms that are already 
+		// part of subgraph
+		local [aidx1 , aidx2] = [ apt indexof[c1, [m1]], 
+					  apt indexof[c2, [m2]]];
+		// construct the current subgraph
+		local sg = tr [aidx1, aidx2];
+
+		// continue if a matching is not compatible with cor_G
+		if length diff [sg, cor_G] then continue; endif;
+
+		// Get all nodes that can be excluded from P
+		local e1 = cat cat apt indicesof [aidx1, nest app first cor_G];
+		local e2 = cat cat apt indicesof [aidx2, nest app second cor_G];
+		local e = uniq cat [e1,e2];
+
+		// initialize BK vars and run
+		P = cat diff [igen length cor_G, e]; 
+		R = x_join [cor_G, sg];		
+		X = [];
+
+		bronkerb [R, P, X, cor_nbr_list, cor_G]; //(ma)DEBUG ,m1,m2,1];
+
+		    // if the found cs is larger than min, 
+		    // then we have already found the mcs -> return!
+
+		if anytrue ((app length CLIQUES) >= min) then
+		    substr = app tr apt get [nest cor_G, CLIQUES];
+		    substr = substr[reverse x_sort app length app first substr];
+		    substr = uniq first substr;
+		    return [substr, apt get [ [m1, m2], substr]];
+		endif
+	    endloop
+	endloop
+    endloop
+
+    // If anything failed, then do the pure BK!
+    // initialize BK vars
+    P = igen length cor_G;
+    R = [];
+    X = [];
+    bronkerb [R, P, X, cor_nbr_list, cor_G]; //(ma)DEBUG ,m1,m2,1];
+
+
+    if length CLIQUES === 0 then return [];endif;
+    substr = app tr apt get [nest cor_G, CLIQUES];
+    substr = substr[reverse x_sort app length app first substr];
+    substr = uniq first substr;
+      // substr is a vec of two indices vecs
+      // for each MCS mapping
+    return [substr, apt get [ [m1, m2], substr]];
+endfunction
+//==============================================================================
+//            END of modified from bronkerbosch_atombased.svl section
+//==============================================================================
+//=============================================================================
+//                      Modified from builder.svl
+//=============================================================================
+local function GetMolecules atoms
+    if not length atoms then return []; endif
+
+    local mnum = uniq aMoleculeNumber atoms;
+    local idx, mask;
+
+    atoms = Atoms[];
+    if length mnum == 1 then mask = aMoleculeNumber atoms == mnum;
+    else		     mask = indexof [aMoleculeNumber atoms, mnum];
+    endif
+    atoms = atoms | mask;
+
+    [idx,mask] = sam aMoleculeNumber atoms;
+    return split [atoms[idx], mtoc mask];
+endfunction
+
+local function aLightBondCount atoms
+    if not isflat atoms then return app aLightBondCount atoms; endif
+    return app add aIsLight aBonds atoms;
+endfunction
+
+local function aHeavyBondCount atoms = (
+    aBondCount atoms - aLightBondCount atoms);
+
+local function aColumn akeys
+    if not isflat akeys then return app aColumn akeys; endif
+    return el_spValence aElement akeys;
+endfunction
+
+local function aPiCount atoms
+    if not isflat atoms then return app aPiCount atoms; endif
+    return app add dec aBondOrder atoms;
+endfunction
+
+const HYBRID = ['sp','sp2','sp3','dsp3','d2sp3','d3sp3'];
+local function aHybrid atoms = indexof [aGeometry atoms, HYBRID];
+
+local function aIsAPO akeys
+    if not isflat akeys then return app aIsAPO akeys; endif
+    return m_findmatch ['A*', aName akeys];
+endfunction
+
+local function aLightBonds atoms
+    local nbr = aBonds atoms;
+    nbr = nbr || aIsLight nbr;
+    nbr = apt get [ nbr, app x_sort aIsAPO nbr ];
+    nbr = apt get [ nbr, app x_sort neg aAtomicNumber nbr ];
+    return nbr;
+endfunction
+
+local function aIsExplicitH atoms
+    if not isflat atoms then return app aIsExplicitH atoms; endif
+    local mask = aIsLight atoms;
+    local idx = x_pack not mask;
+    local ares = aResidue atoms[idx];
+    local m_uniq_ares = m_uniq ares;
+    mask[idx] = stretch [
+	app orE aIsLight rAtoms (ares | m_uniq_ares),
+	mtoc m_uniq_ares
+    ];
+
+    return mask;
+endfunction
+
+
+local function MakeNewBond [atoms, order]
+    order = int order;
+    if order < 1 or order > 4 then return 0; endif
+
+	// Possibly merge residues if we have made an inter-residue bond.
+	// Do this only for relatively simple cases but don't merge
+	// anything with receptors.
+
+    function TotalMass atoms = (
+	  add (el_DefaultMass aElement atoms | aAtomicNumber atoms > 1)
+	+ add (el_DefaultMass 'H' * aHCount atoms)
+    );
+    local comp = [];
+
+    if (not eqE aResidue atoms) then
+	comp = GetMolecules atoms;
+	if length comp <> 2 then comp = []; endif
+
+	local res = app uniq aResidue comp;
+
+	    // If the any component is an multi-residue ligand containing
+	    // amino/nucleic acid then DO NOT MERGE.
+
+	if anytrue (
+		(app add rIsAmino res or app add rIsNucleic res)
+	    and (app length res > 1)
+	) then
+	    res = [];
+	    comp = [];
+	endif
+
+	if length res(1) > 1 then res(1) = 0; comp(2) = []; endif
+	if length res(2) > 1 then res(2) = 0; comp(1) = []; endif
+
+	if length (res = pack res) > 1 then	// pick heaviest
+	    local i = x_max app TotalMass comp;
+	    res = res(i);
+	    comp = cat put [comp, i, [[]]];
+	endif
+
+	if length res and length comp then
+	    local cres = uniq aResidue cat comp, cchain = uniq rChain cres;
+	    oReparent [comp, res];
+	    oDestroy (cres | rAtomCount cres == 0);
+	    oDestroy (cchain | cResidueCount cchain == 0);
+	endif
+    endif
+
+	// Create the bond with the correct bond order
+
+    local hav = aHeavyBondCount atoms;
+    local npi = aPiCount atoms;
+    local col = aColumn atoms;			// actual colum
+    local ion = aIon atoms;			// current ionization
+    local hyb = aHybrid atoms, hyb_org = hyb;	// current hybridization
+
+    local explicitH = aIsExplicitH atoms;	// near explicit Hs
+    oDestroy aLightBonds atoms;			// do this always (?)
+    local octet = minE [8, 2*col];
+
+    if order == 1 then
+	const HBONDS = [2,3,4,5,6,7];
+	hyb = hyb + (hyb > 3 and hav >= HBONDS[hyb]);
+	octet = 2 * [4,4,4,5,6,7][hyb];
+    else
+	hyb = select [1, 2, npi + dec order > 1];
+	octet = minE [8, 2*col];
+    endif
+
+    octet | aAtomicNumber atoms <= 2 = 2;
+    local fc = col - octet + (hav + npi + order);
+    ion = select [fc, ion, col < 4 and fc < ion or col > 4 and fc > ion];
+
+    aSetIon	 [atoms, ion];			// update topology
+    aSetGeometry [atoms, HYBRID[hyb]];
+    aSetHintLP   [atoms, andE [
+	hyb == 2
+    ,   npi + dec order == 1
+    ,   orE eqE [[col-ion],[3,5]]
+    ]];
+    Bond atoms;
+
+    Add_H (atoms | explicitH);
+
+    return 1;
+endfunction
+//==============================================================================
+//                END of modified from builder.svl section
+//==============================================================================
+//------------------------------------------------------------------------------
+// function match_protac_binders
+//	Given a P-P Dock MDB and an arbitrary PROTAC conformation, make the
+//	two binder coordinates from the PROTAC match the docked coordinates.
+//	This version uses MDLQ and/or Maximum Common Substructure (MCS) matching
+//	to identify the correspondences. breakout identifies places where this
+//	function is short-circuited to return e.g. the centroid coordinates of
+//	match1 of the PROTAC.
+//------------------------------------------------------------------------------
+local function match_protac_binders [ppdmdb, mol_conf, breakout, ppentnum]
+
+    local pdata = SystemPush[];
+    if isnull breakout then	// To avoid multiple if isnull then if breakout
+	breakout = 0;
+    endif
+    if isnull ppentnum then	// Take the first PPD entry if not specified
+	ppentnum = 1;
+    endif
+    local mol_c = mol_Create cat db_ReadFields [ppdmdb,
+	(db_Entries ppdmdb)(ppentnum), 'mol'];
+    local xtal1 = cat cAtoms mol_c;
+    oDestroy _Atoms 'rec or sol or aElement == \'LP\'';	// No SiteFinder
+    xtal1 = xtal1 | oValid xtal1;
+    local cofa1 = uniq aMoleculeNumber (xtal1 | aName xtal1 == 'COFA');
+    oDestroy (xtal1|apt m_join [aMoleculeNumber xtal1, [cofa1]]);
+    xtal1 = xtal1 | oValid xtal1;
+    aSetFixed [xtal1, 1];
+    local xtal1_hvy = xtal1 | aElement xtal1 <> 'H';
+    local rec_c = mol_Create cat db_ReadFields [ppdmdb,
+	(db_Entries ppdmdb)(ppentnum), 'receptor'];
+    local xtal2 = cat cAtoms rec_c;
+    oDestroy _Atoms 'rec or sol or aElement == \'LP\'';	// No SiteFinder
+    xtal2 = xtal2 | oValid xtal2;
+    local cofa2 = uniq aMoleculeNumber (xtal2 | aName xtal2 == 'COFA');
+    oDestroy (xtal2|apt m_join [aMoleculeNumber xtal2, [cofa2]]);
+    xtal2 = xtal2 | oValid xtal2;
+    aSetFixed [xtal2, 1];
+    local xtal2_hvy = xtal2 | aElement xtal2 <> 'H';
+    local molname = first mol_conf(1);
+    if molname === '' then
+	molname = first mol_conf(2);
+    endif
+    local conf_c = mol_Create mol_conf;
+    local conf_at = cat cAtoms conf_c;
+    local conf_at_hvy = conf_at | not aIsLight conf_at;
+
+	// Some atoms will be destroyed, so keep all original atoms in variables
+	// for deriving index numbers (for the breakouts)
+
+    local orig_conf_at_hvy = conf_at_hvy;
+    local orig_xtal1_hvy = xtal1_hvy;
+    local orig_xtal2_hvy = xtal2_hvy;
+
+	// Use the mdlq functions to determine the atom order mapping between
+	// xtal1_hvy and the corresponding PROTAC moiety in conf_at_hvy, and
+	// then find the link and reconnection atoms (on the linker and binder,
+	// respectively).
+
+    local ctx = mdlq_Open [_mdlq_AromatizeAtoms xtal1_hvy, MDLQ_OPT];
+    local hits1 = mdlq_MatchFirstCTAB [ctx, _mdlq_AromatizeAtoms conf_at_hvy,
+	MDLQ_OPT];
+    mdlq_Close ctx;
+
+	// If there's no exact match, identify the MCS instead, and redefine
+	// xtal1_hvy as this moiety. 
+
+    if isnull hits1 then
+	local [substr, mcs] = mccs [xtal1_hvy, conf_at_hvy];
+	if length substr == 1 then	// Edge case: ~identical atom nos
+	    substr = rep [substr, 2];
+	endif
+	oDestroy (diff [xtal1_hvy, mcs(1)]);
+	xtal1_hvy = mcs(1);
+	hits1 = substr(2);
+    endif
+    local match1 = conf_at_hvy[hits1];
+
+    if breakout == 'protac1' then
+	local indices = indexof [match1, orig_conf_at_hvy];
+	SystemPop pdata;
+	return indices;
+    endif
+    if breakout == 'xtal1' then
+	indices = indexof [xtal1_hvy| oValid xtal1_hvy, orig_xtal1_hvy];
+	SystemPop pdata;
+	return indices;
+    endif
+
+    local pairs1 = tr [xtal1_hvy, match1];
+    local neigh1 = diff [uniq cat aBonds match1, match1];
+    neigh1 = neigh1 | not aIsLight neigh1;
+    local bond1_m = apt m_join [aBonds neigh1, [match1]];
+    local border1 = aBondOrder neigh1 || bond1_m;
+    local recon1 = aBonds neigh1 || bond1_m;
+    recon1 = apt get [[xtal1_hvy], apt indexof [recon1, [match1]]];
+
+	// Superpose only on the heavy atoms, but move all atoms (incl. Hs)
+
+    if isfalse breakout then
+	local [msd1, R1, t1] = Superpose [[aPos app first pairs1, aPos app
+	    second pairs1]];
+	local npos1 = app add (R1(2) * [aPos conf_at - t1(2)]) + t1(1);
+	aSetPos [conf_at, npos1];
+    endif
+    
+	// Destroy the PROTAC's original binder, then rebond it to the xtal one,
+	// clean up some Hs, inertize the other crystal binder, then minimize
+
+    oDestroy match1;
+    local h = Atoms[] | aElement Atoms[] == 'H';
+    oDestroy (h | app isnull aBonds h);
+    pairs1 = apt oext [recon1, neigh1];
+    pairs1 = apt oext [pairs1, border1];
+    pairs1 = uniq cat pairs1;
+    pairs1 = reverse perm [pairs1, rank app last pairs1];	// 3/2 BOs first
+    app MakeNewBond pairs1;
+    recon1 = cat recon1;
+    oDestroy (aBonds recon1 || aElement aBonds recon1 == 'H');
+    pot_FinalizeModel[];
+    aSetInert [xtal2, 1];
+    if isfalse breakout then MM[verbose:0]; endif
+    aSetInert [xtal2, 0];
+    conf_at = Atoms[] | aMoleculeNumber Atoms[] == aMoleculeNumber first recon1;
+    xtal1 = xtal1 | oValid xtal1;
+    aSetFixed [xtal1, 0];
+
+	// Repeat for the second binder
+
+    conf_at_hvy = conf_at_hvy | oValid conf_at_hvy;
+    ctx = mdlq_Open [_mdlq_AromatizeAtoms xtal2_hvy, MDLQ_OPT];
+    local hits2 = mdlq_MatchFirstCTAB [ctx, _mdlq_AromatizeAtoms conf_at_hvy,
+	MDLQ_OPT];
+    mdlq_Close ctx;
+
+	// If there's no exact match, identify the MCS instead, and redefine
+	// xtal2_hvy as this moiety
+
+    if isnull hits2 then
+	[substr, mcs] = mccs [xtal2_hvy, conf_at_hvy];
+	if length substr == 1 then	// Edge case: ~identical atom nos
+	    substr = rep [substr, 2];
+	endif
+	oDestroy (diff [xtal2_hvy, mcs(1)]);
+	xtal2_hvy = mcs(1);
+	hits2 = substr(2);
+    endif
+    local match2 = conf_at_hvy[hits2];
+
+    if breakout == 'protac2' then
+	indices = indexof [match2, orig_conf_at_hvy];
+	SystemPop pdata;
+	return indices;
+    endif
+    if breakout == 'xtal2' then
+	indices = indexof [xtal2_hvy|oValid xtal2_hvy, orig_xtal2_hvy];
+	SystemPop pdata;
+	return indices;
+    endif
+
+    local pairs2 = tr [xtal2_hvy, match2];
+    local neigh2 = diff [uniq cat aBonds match2, match2];
+    neigh2 = neigh2 | not aIsLight neigh2;
+    local bond2_m = apt m_join [aBonds neigh2, [match2]];
+    local border2 = aBondOrder neigh2 || bond2_m;
+    local recon2 = aBonds neigh2 || bond2_m;
+    recon2 = apt get [[xtal2_hvy], apt indexof [recon2, [match2]]];
+
+	// Superpose only on the heavy atoms, but move all atoms (incl. Hs)
+
+    local [msd2, R2, t2] = Superpose [[aPos app first pairs2, aPos app second
+	pairs2]];
+    local npos2 = app add (R2(2) * [aPos conf_at - t2(2)]) + t2(1);
+    aSetPos [conf_at, npos2];
+
+	// Destroy the PROTAC's original binder, then rebond it to the xtal one,
+	// clean up some Hs, inertize the other crystal binder, then minimize
+
+    oDestroy match2;
+    h = Atoms[] | aElement Atoms[] == 'H';
+    oDestroy (h | app isnull aBonds h);
+    pairs2 = apt oext [recon2, neigh2];
+    pairs2 = apt oext [pairs2, border2];
+    pairs2 = uniq cat pairs2;
+    pairs2 = reverse perm [pairs2, rank app last pairs2];	// 3/2 BOs first
+    app MakeNewBond pairs2;
+    recon2 = cat recon2;
+    oDestroy (aBonds recon2 || aElement aBonds recon2 == 'H');
+    pot_FinalizeModel[];
+
+	// Rigid-body minimize and Clean-up
+
+    local rigid = zero conf_at;
+    rigid = put [rigid, indicesof [xtal1, Atoms[]], 1];
+    MM[verbose:0, aRigidBody:rigid];
+    aSetFixed [Atoms[], 0];
+    oDestroy (Residues[] | app isnull rAtoms Residues[]);
+    oDestroy (Chains[] | app isnull cResidues Chains[]);
+    oReparent [cat rAtoms first Residues[], last Residues[]];
+    oDestroy (Chains[] | app isnull cAtoms Chains[]);
+    oReparent [cat rAtoms first Residues[], last Residues[]];
+    oDestroy (Chains[] | app isnull cAtoms Chains[]);
+    pot_FinalizeModel[];
+    oSetCollection ['rigid1', (xtal1|aElement xtal1<>'H')];
+    xtal2 = xtal2 | oValid xtal2;
+    oSetCollection ['rigid2', (xtal2|aElement xtal2<>'H')];
+    if molname <> '' then
+	cSetName [Chains[], molname];
+	cSetTag [Chains[], molname];
+    endif
+    local moe = _moe_Extract [Atoms[]];
+    SystemPop pdata;
+    return moe;
+endfunction
+//------------------------------------------------------------------------------
+// function __generate_conformations
+//	given a moe vector and options, run the specified Csearch method.
+//	Globalized for MPUability.
+//------------------------------------------------------------------------------
+global function __generate_conformations [moe, opts, entnum, totalents];
+    local pdata = SystemPush [];
+    local pos, E, logdata;
+    local i;
+    local chains, atoms;    
+    local csearch_opts;
+	
+	// conformation import -- Turned off in this version
+    if opts.cmethod == 'Fragment-Based' then
+	csearch_opts = CIMPORT_DEFAULTS;
+	if opts.dbvopen_out then
+	    csearch_opts.outputFileOpenDBV = 1;	// Doesn't work, dunno why
+	endif
+	[pos,E,logdata] = conf_Search[moe, csearch_opts];
+
+	// csearch methods
+    else
+	csearch_opts 	     = tagcat [opts, CSEARCH_DEFAULTS];
+	if MOE_VERSION > 2020 then
+	    csearch_opts.rmsd = sqrt csearch_opts.rmsd;
+	endif
+	csearch_opts.method  = opts.cmethod;
+	if totalents > 1 then
+	    csearch_opts.outfile = tok_cat [opts.csearch_dir, '/', fbase
+		CSEARCH_TMP_MDB, '_', totok entnum, '.mdb'];
+	else
+	    csearch_opts.outfile = tok_cat [opts.csearch_dir, '/',
+		CSEARCH_TMP_MDB];
+	endif
+	if opts.dbvopen_out then
+	    if isnull findmatch ['*csearch_tmp.mdb', db_Filename db_KeyList[]]
+	     then
+		csearch_opts.dbview = 1;
+	    endif
+	endif
+
+	local c = first _moe_Create [moe];
+	ConfSearch csearch_opts;
+	oDestroy Chains[];
+    endif
+    SystemPop pdata;
+    return csearch_opts.outfile;
+endfunction 
+//------------------------------------------------------------------------------
+// function pare_back
+//	Reduce the definition of the rigid binder by one atom from the previous
+//	iteration
+//------------------------------------------------------------------------------
+local function pare_back moe
+    local pdata = SystemPush [];
+    local c = first _moe_Create [moe];
+    local at = cat cAtoms c;
+    local at1 = oGetCollection 'rigid1';
+    local at2 = oGetCollection 'rigid2';
+    local flex = diff [diff [cat cAtoms c, cat [at1, at2]], at | aElement at ==
+	'H'];
+    flex = uniq cat aBonds flex;
+    at1 = at1 | not apt m_join [at1, [flex]];
+    at2 = at2 | not apt m_join [at2, [flex]];
+    oSetCollection ['at1', at1];
+    oSetCollection ['at2', at2];
+    oSetCollection ['flex', flex];
+    local newmoe = _moe_Extract [Chains[]];
+
+	// Get rid of flex. If either at1 or at2 is disconnected as a result,
+	// take only the largest fragment as the new at1 or at2
+
+    local pdata2 = SystemPush[];
+    local new_c = first _moe_Create [newmoe];
+    local new_at = Atoms[];
+    local new_at1 = oGetCollection 'at1';
+    local new_at2 = oGetCollection 'at2';
+    oDestroy oGetCollection 'flex';
+    new_at1 = new_at1 | aMoleculeNumber new_at1 == get [sortuniq aMoleculeNumber
+	new_at1, x_max btoc sort aMoleculeNumber new_at1];
+    local x_at1 = indexof [new_at1, new_at];
+    new_at2 = new_at2 | aMoleculeNumber new_at2 == get [sortuniq aMoleculeNumber
+	new_at2, x_max btoc sort aMoleculeNumber new_at2];
+    local x_at2 = indexof [new_at2, new_at];
+    SystemPop pdata2;
+    oSetCollection ['rigid1', at[x_at1]];
+    oSetCollection ['rigid2', at[x_at2]];
+    local return_moe = _moe_Extract [Chains[]];
+    oDestroy Chains[];
+    SystemPop pdata;
+    return return_moe;
+endfunction
+//------------------------------------------------------------------------------
+// function pro_dupcheck
+//	Given an MDB with a 'mol' column of Protein-Protein Docking results,
+//	return a mask of entries in that MDB with 1s for duplicates and 0s
+//	for unique conformations, based on an all-against-all RMSD calculation
+//------------------------------------------------------------------------------
+local function pro_dupcheck mdb
+    local ents = db_Entries mdb;
+    local dup_m = zero ents;
+    local i = 1;
+    local pdata = SystemPush[];
+    db_Sort [mdb, 'S', 0];
+    while i < length ents loop
+
+	    // Get reference chain in there, if it's not a duplicate
+
+	if dup_m(i) == 0 then
+	    local c = mol_Create cat db_ReadFields [mdb, ents(i), 'mol'];
+	else
+	    i = i + 1;
+	    continue;
+	endif
+
+	local j = i + 1;
+	if j > length ents then
+	    continue;
+	endif
+
+	while j <= length ents loop
+	    if dup_m(j) == 0 then
+		local d = mol_Create cat db_ReadFields [mdb, ents(j), 'mol'];
+	    else
+		j = j + 1;
+		continue;
+	    endif
+	    local rmsd = first _pro_CalculateRMSD [Chains[]];
+	    if rmsd <= DUP_THRESHOLD then
+		dup_m(j) = 1;
+	    endif
+	    oDestroy d;
+	    j = j + 1;
+	endloop
+	oDestroy c;
+	i = i + 1;
+    endloop
+    SystemPop pdata;
+    return dup_m;
+endfunction
+//------------------------------------------------------------------------------
+// function grid_overlap
+//	Calculate the ligand-receptor overlaps. The appropriate atoms should
+//	already be in the system.
+//------------------------------------------------------------------------------
+local function grid_overlap [mdb, ent, rec1, rec2]
+
+    apt db_EnsureField [mdb, ['S_Rec1_lig_all', 'S_Rec1_lig_bbone',
+	'S_Rec2_lig_all', 'S_Rec2_lig_bbone'], 'float'];
+    local lig = uniq oAtoms oGetCollection 'ligand';
+    local [mol1_shape, mol1_grid, mol1_bb] = make_volume_grid rec1;
+    local [mol2_shape, mol2_grid, mol2_bb] = make_volume_grid rec2;
+    local grid1_0 = zero mol1_grid;
+    local grid2_0 = zero mol2_grid;
+    local lig1_grid = notnot grid_addgauss [
+	grid1_0, mol1_shape, 10, 3, aPos lig, aRadius lig];
+    local lig2_grid = notnot grid_addgauss [
+	grid2_0, mol2_shape, 10, 3, aPos lig, aRadius lig];
+    db_Write [mdb, ent, tag ['S_Rec1_lig_all', add (mol1_grid and lig1_grid)]];
+    db_Write [mdb, ent, tag ['S_Rec1_lig_bbone', add (mol1_bb and lig1_grid)]];
+    db_Write [mdb, ent, tag ['S_Rec2_lig_all', add (mol2_grid and lig2_grid)]];
+    db_Write [mdb, ent, tag ['S_Rec2_lig_bbone', add (mol2_bb and lig2_grid)]];
+endfunction
+//------------------------------------------------------------------------------
+// function protac_overlap
+//	Calculate the grid-based overlap between one PROTAC conformation (given
+//	as an entry from a Ternary Complex MDB) and the rest in that MDB.
+//	Written to the MDB is the row number of the PROTAC that most closely
+//	overlaps with the one PROTAC conformation, on a per-mseq basis.
+//------------------------------------------------------------------------------
+global function protac_overlap mdb
+
+	// Initial setup
+
+    local pdata = SystemPush[];
+    local flds = first db_Fields mdb;
+    if isnull findmatch ['ligand', flds] then
+	exit twrite ['{} does not appear to contain ternary complexes',	mdb];
+    endif
+    local ents = db_Entries mdb;
+    if notnull findmatch ['mseq', flds] then
+	local mseqs = db_ReadColumn [mdb, 'mseq'];
+    else
+	mseqs = one ents;
+    endif
+    local umseq = uniq mseqs;
+    local outflds = tok_cat ['Best_overlap_mseq_', totok umseq];
+    local overflds = tok_cat ['Best_overlap_Score_', totok umseq];
+    apt db_EnsureField [mdb, cat tr [outflds, overflds], 'int'];
+    apt db_SetFieldEnv [mdb, outflds, 'dbv_field_bubblehelp',
+	'The row number (in this MDB) of the PROTAC conformation that best\n'
+	'overlaps with the PROTAC conformation in this row, considering only\n'
+	'PROTACs with the indicated mseq.'];
+    apt db_SetFieldEnv [mdb, overflds, 'dbv_field_bubblehelp',
+	'The score of the overlap of the PROTAC conformation in this row with\n'
+	'the PROTAC in the row indicated by the Best_overlap_mseq row number.\n'
+	'This score is roughly a volumetric overlap, with higher values '
+	'indicating\na better overlap.'];
+
+	    // Loop and write the Best_overlap_mseq and Best_overlap_Score
+	    // values, all done on a per-uniq-mseq basis
+
+    local i = 1;
+    while i <= length ents loop
+	local c = mol_Create cat db_ReadFields [mdb, ents(i), 'ligand'];
+	local lig = cat cAtoms c;
+	local pos = aPos lig;
+	local rad = aRadius lig;
+	local j = 1;
+	while j <= length umseq loop
+	    local mseqents = ents | mseqs == umseq(j);
+	    local k = 1;
+	    local overlap = [];
+	    while k <= length mseqents loop
+		if mseqents(k) == ents(i) then	// No self-overlaps
+		    overlap(k) = 0;
+		    k = k + 1;
+		    continue;
+		endif
+		local d = mol_Create cat db_ReadFields [mdb, mseqents(k),
+		    'ligand'];
+		local rec = cat cAtoms d;
+		local [shape, grid, bb] = make_volume_grid rec;
+		local grid_0 = zero grid;
+		local lig_grid = notnot grid_addgauss [grid_0, shape, 10, 3,
+		    pos, rad];
+		overlap(k) = add (grid and lig_grid);
+		oDestroy d;
+		k = k + 1;
+	    endloop
+	    local bestent = mseqents(x_max overlap);
+	    db_Write [mdb, ents(i), tag [outflds(j), indexof [bestent, ents]]];
+	    db_Write [mdb, ents(i), tag [overflds(j), max overlap]];
+	    j = j + 1;
+	endloop
+	oDestroy c;
+	i = i + 1;
+    endloop
+    write 'PROTAC Overlap analysis completed\n';
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function binder_rmsd
+//	Given an MDB of ternary complexes (TCs) and a P-P MDB as input, find the
+//	RMSD between the MCS of each 'ligand' cell in the TC MDB and the binders
+//	in the 'mol' and 'receptor' fields.
+//------------------------------------------------------------------------------
+global function binder_rmsd [mdb, ppd]
+
+	// Initial setup, particularly checking that there's a TC & a PPD MDB
+
+    local pdata = SystemPush[];
+    local i = 1;
+    local flds = first db_Fields mdb;
+    if isnull findmatch ['ligand', flds] or isnull findmatch ['P-P Dock Pose *',
+	flds] then
+	    exit twrite ['{} does not appear to contain ternary complexes',
+		mdb];
+    endif
+    local ppds = db_ReadColumn [mdb, 'P-P Dock Pose #'];
+    apt db_EnsureField [mdb, ['Binder 1 RMSD', 'Binder 2 RMSD'], 'float'];
+    local ents = db_Entries mdb;
+    local ppdents = db_Entries ppd;
+
+	// Loop over each 'ligand', find and write the RMSD for the MCS matches
+	// against both the 'mol' and 'receptor' ligands
+
+    while i <= length ents loop
+	local x = ppds(i);
+
+	local protac_c = mol_Create cat db_ReadFields [mdb, ents(i), 'ligand'];
+	local protac = cat cAtoms protac_c;
+	oDestroy (protac | aElement protac == 'H');
+	protac = protac | oValid protac;
+
+	local mol_c = mol_Create cat db_ReadFields [ppd, ppdents(x), 'mol'];
+	local mol = cat cAtoms mol_c;
+	oDestroy _Atoms 'rec or sol or aElement == \'LP\'';
+	mol = mol | oValid mol;
+	local cofa1 = uniq aMoleculeNumber (mol | aName mol == 'COFA');
+	oDestroy (mol|apt m_join [aMoleculeNumber mol, [cofa1]]);
+	oDestroy (mol | aElement mol == 'H');
+	mol = mol | oValid mol;
+
+	local rec_c = mol_Create cat db_ReadFields [ppd, ppdents(x),'receptor'];
+	local rec = cat cAtoms rec_c;
+	oDestroy _Atoms 'rec or sol or aElement == \'LP\'';
+	rec = rec | oValid rec;
+	local cofa2 = uniq aMoleculeNumber (rec | aName rec == 'COFA');
+	oDestroy (rec|apt m_join [aMoleculeNumber rec, [cofa2]]);
+	oDestroy (rec | aElement rec == 'H');
+	rec = rec | oValid rec;
+
+	local mcs1 = second mccs [mol, protac];
+	local opos = aPos mcs1(1);
+	local npos = aPos mcs1(2);
+	local rmsd1 = sqrt ((add add sqr (opos - npos)) * invz l_length npos);
+	local mcs2 = second mccs [rec, protac];
+	opos = aPos mcs2(1);
+	npos = aPos mcs2(2);
+	local rmsd2 = sqrt ((add add sqr (opos - npos)) * invz l_length npos);
+	db_Write [mdb, ents(i), tag ['Binder 1 RMSD', rmsd1]];
+	db_Write [mdb, ents(i), tag ['Binder 2 RMSD', rmsd2]];
+	oDestroy Chains[];
+	i = i + 1;
+    endloop
+    write 'Binder RMSD completed\n';
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function rigid_bb_min
+//	Given an MDB, take every 'moe' entry, set each protein chain's
+//	backbone as an independent rigid body, let the sidechains and the
+//	ligands be free, and minimize. Write the new conformation back to
+//	the MDB (and the new ligand conformation back too), as well as the
+//	new scores (including new grid_overlap metrics).
+//------------------------------------------------------------------------------
+global function rigid_bb_min [mdb, ppd]
+    local pdata = SystemPush[];
+    local i = 1;
+    local ents = db_Entries mdb;
+    apt db_EnsureField [mdb, THREE_BODY_SCORE_FIELDS(1),
+	THREE_BODY_SCORE_FIELDS(2)];
+    local msg = 0;
+    local opt;
+    while i <= length ents loop
+	local msg_txt = token swrite ['Minimizing entry #{} of {}\n', i, length
+	    ents];
+	msg = Message [msg, msg_txt];
+	if i == 1 or mod [i, 50] == 0 then
+	    write msg_txt;
+	endif
+	local rec = db_ReadFields [mdb, ents(i), 'moe'];
+	local c = first _moe_Create rec;
+
+	    // Iff ppd was provided, use the PPD binder locations to match
+	    // against the final PROTAC in the final complexes, and then fix
+	    // the equivalent atoms before doing any minimization
+    
+	if notnull ppd then
+	    local protac = sortuniq oAtoms oGetCollection 'ligand';
+	    protac = protac | aElement protac <> 'H';
+	    local indices1 = match_protac_binders [ppd, mol_Extract protac,
+		'protac1'];
+	    local indices2 = match_protac_binders [ppd, mol_Extract protac,
+		'protac2'];
+	    local match1 = (protac)[indices1];
+	    local match2 = (protac)[indices2];
+	    aSetFixed [cat [match1, match2], 1];
+	endif
+	local rigid = zero Atoms[];
+	local rec1 = uniq oAtoms oGetCollection 'Receptor1';
+	local rec2 = uniq oAtoms oGetCollection 'Receptor2';
+	local sol = _Atoms 'solvent and heavy';		// Keep waters
+	local bb1 = rec1 | aBackbone rec1 == 1;
+	local bb2 = rec2 | aBackbone rec2 == 1;
+	if notnull sol then
+	    bb1 = cat [bb1, sol | apt m_join [cName aChain sol, [cName uniq
+		aChain oGetCollection 'Receptor1']]];
+	    bb2 = cat [bb2, sol | apt m_join [cName aChain sol, [cName uniq
+		aChain oGetCollection 'Receptor2']]];
+	endif
+	rigid = put [rigid, indicesof [bb1, Atoms[]], 1];
+	rigid = put [rigid, indicesof [bb2, Atoms[]], 2];
+	MM [verbose:0, aRigidBody:rigid, gtest:1];
+	db_Write [mdb, ents(i), tag ['moe', [_moe_Extract [Chains[]]]]];
+	local lig = uniq aChain oAtoms oGetCollection 'ligand';
+	db_Write [mdb, ents(i), tag ['ligand', [mol_Extract lig]]];
+	opt.all_atoms = Atoms[];
+	local score_data = three_body_score4 opt;
+	db_Write [mdb, ents(i), score_data];
+	grid_overlap [mdb, ents(i), rec1, rec2];
+	oDestroy c;
+	i = i + 1;
+    endloop
+    msg = Message [msg, []];
+    write 'rigid_bb_min completed\n';
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function protein_conf_cluster mdb
+//	This script will cluster poses in a MOE-generated Protein-Protein
+//	Docking database. Updated so the outer loop is MPUized.
+//------------------------------------------------------------------------------
+local function protein_conf_cluster mdb
+
+	// Variables for initialization, script distribution, receiving output,
+	// etc.
+
+    mdb = ffullname mdb;
+    if MPU_HOSTCOUNT>1 then
+	local orig_tc = (pot_Setup []).threadCount;
+	mpu_call [igen (MPU_HOSTCOUNT-1)+1, 'exe_setpriority', [[0,1]]];
+	pot_Setup [threadCount:1];
+    endif
+    local res, code, seqno, udata, i, j, followents, x;
+    local cmd = 'call';
+    local ent = 0;
+    local task_id = task_key -1;
+    local src = (modenv[]).filename;
+    mpu_load [igen MPU_HOSTCOUNT, [src]];
+    local thresh = DEFAULT_THRESHOLD;
+    local ents = db_Entries mdb;
+    local rmat;
+
+	// Loop through the MDB, sending each entry off to an MPU node
+
+    loop
+	[res, code, seqno, udata] = [[], [], [], []];
+	if cmd <> '' then
+	    ent = db_NextEntry [mdb, ent];
+	    if isfalse ent then
+		cmd = '';
+	    else
+		followents = drop [ents, indexof[ent, ents]];
+	    endif
+	endif
+
+	[res, code, seqno, udata] = mpu_batch [
+	    cmd, '__protein_conf_cluster', [mdb, ent, followents],
+	    [mdb, ent, followents]];
+	sleep 0.1;	// Give it a chance to get to the other hosts
+
+	if code === 'error' then
+	    local [host, wh] = mpu_batch '$Where';
+	    if eqL [last wh(1), 'f'] then wh = app droplast wh; endif
+	    if notnull wh then
+		local fcn	= ftrimname [wh(1), 30];// fcn name
+		local lnum	= wh(4);		// line number
+		local fn	= ftrimname [fenvname wh(3), 40];
+		apt write ['    {t:-30u}\t{n:6} {}\n', fcn, lnum, fn];
+	    endif
+
+	elseif code === '' then		// Results coming back
+	    x = indexof [udata(2), ents];
+	    rmat(x) = app cat tr [oext [x, indexof [udata(3), ents]], res];
+	elseif code === 'eof' then
+	    break;
+	endif
+    endloop
+    if notnull orig_tc then pot_Setup [threadCount:orig_tc]; endif;
+    rmat = cat rmat;
+
+    local htree = hclust_tree ['single', tr rmat];
+    local clusts = hclust_id [htree, thresh];
+    local cfield = tok_cat ['P_Cluster_', totok thresh];
+    db_EnsureField [mdb, cfield, 'int'];
+    if length ents == 1 then
+	db_Write [mdb, ents, tag [cfield, 1]];
+    else
+	apt db_Write [mdb, ents, apt tag [cfield, clusts]];
+    endif
+endfunction
+//------------------------------------------------------------------------------
+// function _double_cluster mdb
+//	Function accepts the final output of e.g. Method 4B. Unique P-P Docked
+//	Poses and Unique PROTAC conformations are written to separate databases,
+//	cluster at 10 A and 3 A RMSD thresholds, respectively, and then the
+//	clustering results are written back to the original MDB. The largest
+//	double-cluster is then identified.
+//------------------------------------------------------------------------------
+local function _double_cluster mdb
+
+    if isnull mdb then
+	mdb = dbv_DefaultView[];
+    endif
+
+    local pdata = SystemPush[];
+    local ents = db_Entries mdb;
+    local pp_num = db_ReadColumn [mdb, 'P-P Dock Pose #'];
+    local lig_num = db_ReadColumn [mdb, 'mseq_lig'];
+    local u_pp_num = uniq pp_num;
+    local u_lig_num = uniq lig_num;
+    local u_pp_ents = ents[app first indicesof [u_pp_num, pp_num]];
+    local u_lig_ents = ents[app first indicesof [u_lig_num, lig_num]];
+
+	// Cluster the unique proteins in a separate database, then write the
+	// Protein Cluster numbers back to the original output MDB
+
+    local i = 1;
+    local pp_name = tok_cat ['p_clust_', totok rand INT_MAX, '.mdb'];
+    randseed[];
+    local pp_mdb = db_Open [pp_name, 'create'];
+    apt db_EnsureField [pp_mdb, ['mol', 'P-P Dock Pose #'], ['molecule','int']];
+    while i <= length u_pp_ents loop
+	local c = first _moe_Create db_ReadFields [mdb, u_pp_ents(i), 'moe'];
+	local rec_c = uniq aChain _Atoms 'rec';
+	local newent = db_Write [pp_mdb, 0, tag ['mol',[mol_Extract rec_c(1)]]];
+	db_Write [pp_mdb, newent, tag ['P-P Dock Pose #', u_pp_num(i)]];
+	oDestroy Chains[];
+	i = i + 1;
+    endloop
+    db_Close pp_mdb;
+    protein_conf_cluster pp_name;
+    db_Merge [db1:mdb, db2:pp_name, key1:'P-P Dock Pose #',
+	key2:'P-P Dock Pose #', import2:'P_Cluster_10', opt:'all'];
+    _fdelete pp_name;
+
+	// Cluster the unique PROTAC conformations in a separate database, then
+	// write the PROTAC Cluster numbers back to the original output MDB
+
+    i = 1;
+    local lig_name = tok_cat ['lig_clust_', totok rand INT_MAX, '.mdb'];
+    randseed[];
+    local lig_mdb = db_Open [lig_name, 'create'];
+    apt db_EnsureField [lig_mdb, ['mol', 'mseq_lig', 'mseq'], ['molecule',
+	'int', 'int']];
+    while i <= length u_lig_ents loop
+	c = mol_Create cat db_ReadFields [mdb, u_lig_ents(i), 'ligand'];
+	newent = db_Write [lig_mdb, 0, tag ['mol', [mol_Extract c]]];
+	db_Write [lig_mdb, newent, tag ['mseq_lig', u_lig_num(i)]];
+	db_Write [lig_mdb, newent, tag ['mseq', 1]];
+	oDestroy c;
+	i = i + 1;
+    endloop
+    db_conf_cluster [db_Filename lig_mdb, 'mseq', 'E', 'Minimize Cluster', 3];
+    db_RenameField [lig_mdb, 'Cluster', 'Cluster_3'];
+    db_Merge [db1:mdb, db2:lig_mdb, key1:'mseq_lig', key2:'mseq_lig',
+	import2:'Cluster_3', opt:'all'];
+    db_Close lig_mdb;
+    _fdelete lig_name;
+
+	// Find the most populated double-cluster
+
+    local pc = db_ReadColumn [mdb, 'P_Cluster_10'];
+    local lc = db_ReadColumn [mdb, 'Cluster_3'];
+    db_EnsureField [mdb, 'L3xP10', 'char'];
+    i = 1;
+    while i <= length ents loop
+	db_Write [mdb, ents(i), tag ['L3xP10', [string tok_cat [totok lc(i),
+	    '_', totok pc(i)]]]];
+	i = i + 1;
+    endloop
+    local dub = app token db_ReadColumn [mdb, 'L3xP10'];
+    local clusts = tag [perm [uniq sort dub, rank neg btoc sort dub], reverse
+	sort btoc sort dub];
+    db_EnsureField [mdb, 'Double Cluster Population', 'int'];
+    apt db_Write [mdb, ents, apt tag ['Double Cluster Population', tagget
+	[clusts, dub]]];
+    SystemPop pdata;
+endfunction
+//------------------------------------------------------------------------------
+// function double_cluster mdb
+//	Wrapper function for the workhorse Function _double_cluster. This global
+//	function splits the main Method 4B output MDB by mseq, sends each subMDB
+//	off to _double_cluster to do the clustering (in an MPUized loop), and
+//	then copies the data back to the original Method 4B output MDB.
+//------------------------------------------------------------------------------
+global function double_cluster mdb
+    mdb = ffullname mdb;
+    local mdbpath = fpath mdb;
+    if mdbpath == '' then
+	mdbpath = cd[];
+    endif
+
+    db_Sort [mdb, 'mseq', 0];
+    local ents = db_Entries mdb;
+    if notnull findmatch ['mseq', first db_Fields mdb] then
+	local mseq = db_ReadColumn [mdb, 'mseq'];
+    else
+	mseq = one ents;
+    endif
+    local umseq = uniq mseq;
+    if length umseq == 1 then	// No need to get fancy; just do the clustering
+	_double_cluster mdb;
+	return;
+    endif
+    local flds = first db_Fields mdb;
+    apt db_EnsureField [mdb, ['P_Cluster_10', 'Cluster_3', 'L3xP10',
+	'Double Cluster Population'], ['int', 'int', 'char', 'int']];
+    local clus1, clus2, clus3, clus4;
+    local dsts = tok_cat [fbase ftail mdb, '_', totok umseq, '.mdb'];
+    dsts = tok_cat [mdbpath, '/', dsts];
+    local tocopy = split [ents, btoc mseq];
+    local i = 1;
+    while i <= length umseq loop
+	db_ExportDB [dsts(i), mdb, flds, tocopy(i)];
+	_double_cluster dsts(i);
+	i = i + 1;
+    endloop
+
+	// Transfer all the cluster data to the main MDB, then clean up the
+	// intermediate files
+
+    i = 1;
+    while i <= length dsts loop
+	clus1 = db_ReadColumn [dsts(i), 'P_Cluster_10'];
+	apt db_Write [mdb, tocopy(i), app nest tag ['P_Cluster_10', clus1]];
+	clus2 = db_ReadColumn [dsts(i), 'Cluster_3'];
+	apt db_Write [mdb, tocopy(i), app nest tag ['Cluster_3', clus2]];
+	clus3 = db_ReadColumn [dsts(i), 'L3xP10'];
+	apt db_Write [mdb, tocopy(i), app nest tag ['L3xP10', clus3]];
+	clus4 = db_ReadColumn [dsts(i), 'Double Cluster Population'];
+	apt db_Write [mdb, tocopy(i), app nest tag [
+	    'Double Cluster Population', clus4]];
+	_fdelete dsts(i);
+	i = i + 1;
+    endloop
+    db_Sort [mdb, ['mseq', 'P-P Dock Pose #', 'mseq_lig'], [0,0,0]];
+endfunction
+//------------------------------------------------------------------------------
+// function pan_protein_conf_cluster mdb
+//	This function ignores the PROTAC mseq and just clusters the output
+//	ternary complexes by uniq P-P Dock Pose #.
+//------------------------------------------------------------------------------
+global function pan_protein_conf_cluster mdb
+    local msg = 0;
+    local msg_txt = 'Performing Pan-Protein Clustering\n';
+    msg = Message [msg, msg_txt];
+    write msg_txt;
+    mdb = ffullname mdb;
+    local tmpmdb = 'tmp_pan_protein_conf_cluster.mdb';
+    tmpmdb = ffullname tmpmdb;
+
+    local flds = first db_Fields mdb;
+    flds = diff [flds, 'P_Cluster_10'];		// No collision with dub_clus
+    local ents = db_Entries mdb;
+    local pp = db_ReadColumn [mdb, 'P-P Dock Pose #'];
+    local m = m_uniq pp;
+    db_ExportDB [tmpmdb, mdb, flds, ents|m];
+
+	// Convert the 'moe' field to a 'molecule' field only containing
+	// the Receptor1 Set
+
+    local newents = db_Entries tmpmdb;
+    db_EnsureField [tmpmdb, 'mol', 'molecule'];
+    local i = 1;
+    local pdata = SystemPush[];
+    while i <= length newents loop
+	local c = first _moe_Create db_ReadFields [tmpmdb, newents(i), 'moe'];
+	db_Write [tmpmdb, newents(i), tag ['mol', [mol_Extract uniq oChains
+	    oGetCollection 'Receptor1']]];
+	oDestroy c;
+	i = i + 1;
+    endloop
+    SystemPop pdata;
+    protein_conf_cluster tmpmdb;
+    db_RenameField [tmpmdb, 'P_Cluster_10', 'Pan_P_Cluster_10'];
+    db_Merge [db1:mdb, db2:tmpmdb, key1:'P-P Dock Pose #',
+	key2:'P-P Dock Pose #', import2:'Pan_P_Cluster_10', opt:'all'];
+    _fdelete tmpmdb;
+    msg = Message [msg, []];
+    write 'Pan-Protein Clustering complete\n';
+endfunction
+//==============================================================================
+//------------------------- CONF CLUSTER TOOLS --------------------------------
+//==============================================================================
+// All adapted from db_conf_cluster
+const COMPARATORS = [max:'min',x_max:'x_min'];
+
+local function check_fields [mdb, mseq, E]
+    local [fieldnames, fieldtypes]  = db_Fields mdb;
+    local molfieldnames = fieldnames | (fieldtypes == 'molecule');
+    [fieldnames, fieldtypes] = 
+	[fieldnames, fieldtypes] || [not (fieldtypes == 'molecule')];
+    return [mseq, E, fieldnames, molfieldnames];
+endfunction
+
+local function ConfClustering [mdbfile, molfield, ent, 
+    rmsd, method, usecompf, efield, maxormin]
+    usecompf = 0;
+    apt db_EnsureField [mdbfile, ['Cluster', 'Center', 'RMSD'], 
+			     ['int', 'int', 'float']];
+    local n = length ent;
+    local comp_fcn = get [
+	COMPARATORS(2), indexof [maxormin, COMPARATORS(1)]];
+
+    local i, j, mol, chains, atoms,pos,ConfDistMatrix, E;
+    local entries = ent;
+    local dbmol=[], confs=[];
+    for i = 1,n loop
+	mol = first db_ReadFields [mdbfile, ent(i), molfield];
+	chains = mol_Create mol;
+	atoms = cat cAtoms chains;
+	pos(i) = aPos atoms;
+	conf_NormalizeAtoms atoms;
+	aSetForceRS [atoms, 0];
+	local hatoms = atoms | aAtomicNumber atoms > 1;
+	dbmol(i) = mol_Extract hatoms;
+	confs(i) = first conf_ExpandAutomorphisms [
+	    dbmol(i),
+	    nest mol_aPos dbmol(i),
+	    0
+	];
+	oDestroy chains;
+    endloop
+
+    local atomcount = length first first pos;
+    ConfDistMatrix=[];
+    local x,y;
+    for y = 1, n loop
+	for x = 1, dec y loop
+	    local rmsds=[];
+	    for i = 1, length confs(x) loop
+		for j = 1, length confs(y) loop
+		    rmsds(i)(j) = first Superpose [
+			[confs(x)(i), confs(y)(j)]];
+		endloop
+	    endloop
+	    ConfDistMatrix(x)(y) = sqrt min cat cat rmsds;
+	    ConfDistMatrix(y)(x) = ConfDistMatrix(x)(y);
+	endloop
+	ConfDistMatrix(y)(y) = 0;
+    endloop
+
+    // find all pairs within RMSD threashold 
+    local f_RMSD_Matrix = ConfDistMatrix < rmsd;
+    i = 1;
+    local orig_E = E;
+    local orig_CMD = ConfDistMatrix;
+    local ClusterCenter,ClusterConfList,f_Entry,f_Cluster;
+
+    // get cluster center and entry list in each cluster
+    while length f_RMSD_Matrix loop
+	f_Entry = app add f_RMSD_Matrix; 
+
+	// find an entry that defines a cluster center
+	comp_fcn = 'x_max';
+	f_Entry = put [
+	    rep[0,length f_RMSD_Matrix], call [comp_fcn, f_Entry], 1];
+	ClusterCenter(i) = ent|f_Entry;
+
+	// get conformers in the cluster
+	ClusterConfList(i) = ent|cat (f_RMSD_Matrix|f_Entry);
+
+	// strip entries in the cluster above from original entry list
+	// do same process for f_RMSD_Matrix 
+	f_Cluster = not cat (f_RMSD_Matrix|f_Entry);
+	ent = ent | f_Cluster;
+	f_RMSD_Matrix = f_RMSD_Matrix||[f_Cluster];
+	f_RMSD_Matrix = f_RMSD_Matrix|f_Cluster;
+	i = i + 1;
+    endloop
+
+    // get RMSD from each Cluster Center
+    ent = entries;
+    ConfDistMatrix = ConfDistMatrix|indexof [ent, ClusterCenter];
+    ConfDistMatrix = perm [ConfDistMatrix,pack indexof [ent, ClusterCenter]];
+    ConfDistMatrix = apt mput [ConfDistMatrix,(ConfDistMatrix >= rmsd), 0];
+
+    local function RMSD_clusterclean[ConfDistMatrix, n, method]
+	local i;
+	ConfDistMatrix = tr ConfDistMatrix;
+	local dist_list,ent_idx;
+
+	if method === 'Minimize Cluster' then
+	    for i = 1,n loop
+		dist_list = ConfDistMatrix(i)|ConfDistMatrix(i)>0;
+		if length dist_list > 0 then
+		    ent_idx = first (
+			(indexof [dist_list,ConfDistMatrix(i)]) | 
+			dist_list == minE dist_list
+		    );
+		    ConfDistMatrix(i) = rep [0,length ConfDistMatrix(i)];
+		    ConfDistMatrix(i)(ent_idx) = minE dist_list;
+		endif
+	    endloop
+	endif
+	ConfDistMatrix = tr ConfDistMatrix;
+	return ConfDistMatrix;
+    endfunction
+    
+    ConfDistMatrix = RMSD_clusterclean[ConfDistMatrix, n, method];
+
+	// unify the enties for each cluster.  At this stage, if we are using 
+	// a float field rather than RMSD to define the cluster centres, we 
+	// need to move the cluster centre.
+	// SHOULD WE THEN LOOP BACK AND RECALCULATE CLUSTER MEMBERS?
+
+    for i = 1, length ClusterCenter loop
+	ClusterConfList(i) = cat [ClusterCenter(i), ent | ConfDistMatrix(i)];
+    endloop
+
+	// Moving the cluster centre means we have to reaquire the distance
+	// matrix data for the output RMSD field
+    ConfDistMatrix = add ConfDistMatrix;
+    local k;
+    for i = 1, length ClusterCenter loop
+	for j = 1,length ClusterConfList(i) loop
+	    if iadd (ClusterCenter == ClusterConfList(i)(j)) then
+		    k = 1;
+	    else
+		    k = 0;
+	    endif
+	    db_Write [mdbfile, ClusterConfList(i)(j), tag[['Cluster','Center'],
+		[i,k]]];
+	endloop
+    endloop
+
+    for i = 1,n loop
+	    db_Write [mdbfile, ent(i), tag['RMSD',ConfDistMatrix(i)]];
+    endloop
+    return [ClusterCenter,ClusterConfList];
+endfunction
+
+local function db_conf_cluster [mdb, mseq, efield, method, rmsd]
+    local mdbfile = db_Filename mdb;
+    local fieldnames, molfieldnames, ents, data, m, opts, mfield, value;
+    [mseq, efield, fieldnames, molfieldnames] = check_fields[mdb, mseq, efield];
+    value.method = method;
+    value.rmsd = rmsd;
+    value.mfield = db_FirstFieldType [mdb, 'molecule'];
+    local entries = db_Entries mdb;
+    local mseqs = db_ReadColumn [mdb, mseq];
+    entries = entries [x_sort mseqs];
+    local split_ents = split [entries, mtoc m_uniq sort mseqs];
+
+    for ents in split_ents loop
+	if length ents > 1 then 
+	    ConfClustering [
+		mdbfile, value.mfield,  ents, value.rmsd, value.method, 
+		value.usecompf, value.efield, value.maxormin];
+
+	elseif length ents === 1 then
+	    apt db_EnsureField [mdb, ['Cluster', 'Center', 'RMSD'], 
+				     ['int', 'int', 'float']];
+	    db_Write [mdb, ents, tag ['Cluster', 1]]; // assign cluster #1
+	    db_Write [mdb, ents, tag ['Center', 1]];  // assign center
+	    db_Write [mdb, ents, tag ['RMSD', 0]];    // RMSD = 0
+	endif
+    endloop
+endfunction
+//==============================================================================
+//------------------------- MAIN COMPUTE ENGINE --------------------------------
+//------------------------------------------------------------------------------
+// function three_body_csearch_method4B opts
+//
+// opts  should be set up either by the GUI and/or the Generate Batch File
+// button
+//
+//------------------------------------------------------------------------------
+global function three_body_csearch_method4B opts
+
+    task_settitle [-1, 'Three Body Search, Method 4B'];
+
+    pot_Setup POT_SETUP_ALL;
+
+    opts = tagcat [opts, THREE_BODY_CSEARCH4_DEFAULTS];
+
+    local msg = 0;
+    local msg_txt = token swrite ['{}\n', 'Performing Three Body Search...'];
+    write msg_txt;
+    msg = Message [msg, msg_txt];
+    if isnull opts.dbvopen_out then opts.dbvopen_out = 0; endif
+    local pdata = SystemPush[];
+
+	// Get the PROTAC Source into an MDB, if necessary. For SDF and SMILES,
+	// hydrogens must be present, molecules must be washed (including
+	// dominant protomer), and non-intertwined conformations must be
+	// generated via embedding.
+
+    local mdbchk = _is_file_MDB opts.inmdb;
+    if mdbchk then
+	local dbfile = opts.inmdb;
+    else
+	dbfile = tok_cat [fbase opts.inmdb, '.mdb'];
+	db_Open [dbfile, 'create'];
+	mdbchk = io_Is_MDL [freadb [opts.inmdb, 'line', INT_MAX], 0, 'mdl_sdf'];
+	if mdbchk === 'mdl_sdf' then
+	    db_ImportSD [dbfile, opts.inmdb, 'mol', [], [], [], [verbose:0,
+		add_hydrogens:1]];
+	else	// Must be SMILES/ASCII
+	    local ascii_opt = __db_ImportASCII_DetectOptions
+		[ascii_file:opts.inmdb];
+	    db_ImportASCII tagcat [[db_file:dbfile], ascii_opt];
+	endif
+	local molfield = db_FirstFieldType [dbfile, 'molecule'];
+	if opts.prot == 'None' then
+	    WashMDB [dbfile, molfield, dbfile, [destfield:molfield, protomers:0,
+		dominantProt:0, original:1, enumsize:10, addH:'Add Explicit',
+		protOpt: 'None']];
+	elseif opts.prot == 'Dominant' then
+	    WashMDB [dbfile, molfield, dbfile, [destfield:molfield, protomers:1,
+		dominantProt:1, original:0, enumsize:1, addH: 'Add Explicit',
+		protOpt: 'Dominant']];
+	elseif opts.prot == 'Neutralize' then
+	    WashMDB [dbfile, molfield, dbfile, [destfield:molfield, protomers:0,
+		dominantProt:0, original:1, enumsize:10, addH:'Add Explicit',
+		protOpt: 'Neutralize', neutralize:1]];
+	endif
+	if opts.threed then
+	    db_Minimize [dbfile, molfield, [rebuild:'Rebuild3D',
+		_terse_output:1]];
+	endif
+    endif
+
+	// Perform the P-P docking on-the-fly, if requested. Delete solvent
+	// atoms, too, unless they're in a Set named Keep.
+
+    if opts.do_pp then
+	local msg1 = 0; local msg_txt1;
+	local pp_opts = P_P_DOCK_DEFAULTS;
+	local c_1 = ReadAuto opts.rc1;
+	local solv_res = uniq oParent _Atoms 'solvent';
+	solv_res = diff [solv_res, uniq oResidues oGetCollection 'Keep'];
+	local solv_c = uniq oParent solv_res;
+	oDestroy solv_res;
+	oDestroy (solv_c | app isnull oResidues solv_c);
+	c_1 = c_1 | oValid c_1;
+	oSetCollection ['complex1', cat oAtoms c_1];
+	local c_2 = ReadAuto opts.rc2;
+	solv_res = uniq oParent _Atoms 'solvent';
+	solv_res = diff [solv_res, uniq oResidues oGetCollection 'Keep'];
+	solv_c = uniq oParent solv_res;
+	oDestroy solv_res;
+	oDestroy (solv_c | app isnull oResidues solv_c);
+	c_2 = c_2 | oValid c_2;
+	oSetCollection ['complex2', cat oAtoms c_2];
+	aSetFixed [Atoms[], 0];
+	aSetTether[Atoms[], aPos Atoms[], 0, 0, 0];
+
+	    // If requested to "bias" the calculation to ensure that hydrophobic
+	    // pocket patches are near other hydrophobic patches, do that setup
+	    // now. This entails creating multiple input files and concatenating
+	    // the output MDBs (including duplicate removal).
+
+	    // If no bias was requested, then the sites are just the pockets,
+	    // and only one run is needed. NEW: this "unbiased" (pocket-to-
+	    // pocket match, ignoring hydrophobic patches) docking result is
+	    // also calculated in Biased mode, and its results are included
+	    // in the results
+
+	if opts.bias then
+
+		// First get the patches for complexes 1 and 2
+
+	    msg_txt1 = token swrite ['{}\n', 'Calculating Protein Patches'];
+	    msg1 = Message [msg1, msg_txt1];
+	    write msg_txt1;
+	    pot_FinalizeModel[];
+	    local lig1 = _Atoms 'lig and $complex1';
+	    local cofa1 = uniq aMoleculeNumber (lig1 | aName lig1 == 'COFA');
+	    lig1 = lig1 | not apt m_join [aMoleculeNumber lig1, [cofa1]];
+	    oSetCollection ['lig1', lig1];
+	    local lig2 = _Atoms 'lig and $complex2';
+	    local cofa2 = uniq aMoleculeNumber (lig2 | aName lig2 == 'COFA');
+	    lig2 = lig2 | not apt m_join [aMoleculeNumber lig2, [cofa2]];
+	    oSetCollection ['lig2', lig2];
+	    local pp1 = msurf_ProteinPatch [uniq oChains oGetCollection
+		'complex1'];
+	    local trpp1 = tr pp1;
+	    local hyd1 = pp1 | tagvals trpp1(4) == 'hyd';
+	    local hyd_at1 = tagvals app last hyd1;
+	    local hyd_area1 = apt tagget [hyd1, 'area'];
+	    local pp2 = msurf_ProteinPatch [uniq oChains oGetCollection
+		'complex2'];
+	    local trpp2 = tr pp2;
+	    local hyd2 = pp2 | tagvals trpp2(4) == 'hyd';
+	    local hyd_at2 = tagvals app last hyd2;
+	    local hyd_area2 = apt tagget [hyd2, 'area'];
+
+		// Now find the patches within 10A (hardcoded for now) of any
+		// ligand atom. If there aren't any matching those criteria,
+		// fall back to just using the pocket.
+
+	    local patch_lig1 = oext [hyd_at1, lig1];
+	    local m1 = app min (split [app min app aDist patch_lig1, length
+		lig1])<NEIGHBOR_PATCH_DISTS;
+	    if (add m1)>0 then
+		hyd_at1 = hyd_at1 | m1;
+		hyd_at1 = cat [hyd_at1, [_Atoms '($lig1>>4.5>>res) - $lig1']];
+		hyd_area1 = hyd_area1 | m1;
+	    else
+		hyd_at1 = nest _Atoms '($lig1>>4.5>>res) - $lig1';
+	    endif
+
+	    local patch_lig2 = oext [hyd_at2, lig2];
+	    local m2 = app min (split [app min app aDist patch_lig2, length
+		lig2])<NEIGHBOR_PATCH_DISTS;
+	    if (add m2)>0 then
+		hyd_at2 = hyd_at2 | m2;
+		hyd_at2 = cat [hyd_at2, [_Atoms '($lig2>>4.5>>res) - $lig2']];
+		hyd_area2 = hyd_area2 | m2;
+	    else
+		hyd_at2 = nest _Atoms '($lig2>>4.5>>res) - $lig2';
+	    endif
+
+		// Create sets and output MDBs
+
+	    local recsites = tok_cat ['recsite_', totok igen length hyd_at1];
+	    local ligsites = tok_cat ['ligsite_', totok igen length hyd_at2];
+	    apt oSetCollection [recsites, hyd_at1];
+	    apt oSetCollection [ligsites, hyd_at2];
+	    local bias_x = oext [igen length droplast hyd_at1, igen length
+		droplast hyd_at2];
+	    bias_x = cat [bias_x, nest [length recsites, length ligsites]];
+	    local mdblist = cat apt tok_cat ['bias_', totok igen length droplast
+		hyd_at1, '_', [totok igen length droplast hyd_at2], '.mdb'];
+	    mdblist = cat [mdblist, 'bias_0_0.mdb'];
+	    local mdbpath = fpath ffullname opts.do_pp_out;
+	    if mdbpath == '' then
+		mdbpath = cd[];
+	    endif
+	    mdblist = tok_cat [mdbpath, '/', mdblist];
+
+		// Do multiple docking runs, in an MPU function
+
+	    msg_txt1 = token swrite [
+		'Identified {} patches in Complex 1 and {} in Complex 2\n'
+		'Performing {} Protein-Protein Docking Simulations...\n',
+		(length recsites)-1, (length ligsites)-1, length mdblist];
+	    write msg_txt1;
+	    msg1 = Message [msg1, msg_txt1];
+	    smp_pp_dock [recsites, ligsites, bias_x, mdblist, pp_opts];
+	    msg1 = Message [msg1, []]; msg1 = 0;
+
+		// Write the patch-based SASAs to the MDBs, and then
+		// concatenate the individual MDBs into one MDB
+
+	    msg_txt1 = token swrite ['{}\n',
+		'Concatenating docking MDBs and removing duplicates'];
+	    write msg_txt1;
+	    msg1 = Message [msg1, msg_txt1];
+	    local dockmdb = db_Open [opts.do_pp_out, 'create'];
+	    apt db_EnsureField [dockmdb, first db_Fields mdblist(1), second
+		db_Fields mdblist(1)];
+	    db_EnsureField [dockmdb, 'source_mdb', 'char'];
+	    apt db_EnsureField [dockmdb, ['Complex 1 hyd_patch SA',
+		'Complex 2 hyd_patch SA'], 'float'];
+	    local i = 1;
+	    while i <= length mdblist loop
+		local ents = db_Entries mdblist(i);
+		apt db_EnsureField [dockmdb, first db_Fields mdblist(i), second
+		    db_Fields mdblist(i)];	// if mdblist(1) is empty
+		apt db_EnsureField [mdblist(i), ['Complex 1 hyd_patch SA',
+		    'Complex 2 hyd_patch SA'], 'float'];
+    		apt db_Write [mdblist(i), ents, [tag [ 'Complex 1 hyd_patch SA',
+		    hyd_area1(bias_x(i)(1))]]];
+		apt db_Write [mdblist(i), ents, [tag [ 'Complex 2 hyd_patch SA',
+		    hyd_area2(bias_x(i)(2))]]];
+		local j = 1;
+		while j <= length ents loop
+		    local record = db_Read [mdblist(i), ents(j)];
+		    local newent = db_Write [dockmdb, 0, record];
+		    db_Write [dockmdb, newent, tag ['source_mdb', [string
+			mdblist(i)]]];
+		    j = j + 1;
+		endloop
+		_fdelete mdblist(i);
+		i = i + 1;
+	    endloop
+	    db_ReorderFields [dockmdb, ['mol', 'receptor'], [1,2]];
+
+		// Duplicate check: 1 = duplicate, 0 = unique
+
+	    local dup_m = pro_dupcheck dockmdb;
+	    local allents = db_Entries dockmdb;
+	    db_Delete [dockmdb, allents|dup_m];
+	    local tmpdockname = db_Filename dockmdb;
+	    db_Close dockmdb;
+	    dockmdb = tmpdockname;
+	    msg1 = Message [msg1, []];
+	else
+	    msg_txt1 = token swrite ['{}\n', 'Docking Complex 1 against '
+		'Complex 2'];
+	    write msg_txt1;
+	    msg1 = Message [msg1, msg_txt1];
+	    lig1 = _Atoms 'lig and $complex1';
+	    cofa1 = uniq aMoleculeNumber (lig1 | aName lig1 == 'COFA');
+	    lig1 = lig1 | not apt m_join [aMoleculeNumber lig1, [cofa1]];
+	    oSetCollection ['lig1', lig1];
+	    lig2 = _Atoms 'lig and $complex2';
+	    cofa2 = uniq aMoleculeNumber (lig2 | aName lig2 == 'COFA');
+	    lig2 = lig2 | not apt m_join [aMoleculeNumber lig2, [cofa2]];
+	    oSetCollection ['lig2', lig2];
+	    local site1 = _Atoms '($lig1>>4.5>>res) - $lig1';
+	    oSetCollection ['site1', site1];
+	    local site2 = _Atoms '($lig2>>4.5>>res) - $lig2';
+
+		// Ligand site is passed as an opt in 2019
+
+	    pp_opts.placement_opt.pp_lig_site_pos = aPos site2;	// 2019
+	    pp_opts.placement_opt.ppsite_pos = aPos site2;	// 2020
+	    if MOE_VERSION<2020 then
+		DockAtoms [oGetCollection 'complex1', oGetCollection 'site1',
+		    oGetCollection 'complex2', opts.do_pp_out, pp_opts];
+	    else
+		DockAtoms [oGetCollection 'complex1', oGetCollection 'site1',
+		    [atom_sel:oGetCollection 'complex2', site_set:oGetCollection
+		     'site2'], opts.do_pp_out, pp_opts];
+	    endif
+	    dockmdb = opts.do_pp_out;
+	    msg1 = Message [msg1, []];
+	endif
+	oDestroy [c_1, c_2];
+    else
+	dockmdb = opts.pp_in;
+    endif
+    if opts.dbvopen_out and MPU_HOSTCOUNT == 1 then
+	dbv_Open dockmdb;
+    endif
+
+	// Run the Propatch script, if requested. First check to see if the
+	// patch values are already evaluated (across all entries) -- if so,
+	// skip it, even if the option box is checked [which it is by default].
+	// The mechanism to REALLY repeat the calculation (not that it'd ever
+	// be necessary) would be to delete any value in the *all_all* fields.
+
+    if opts.patches then
+	local allall = findmatch ['*_all_*_all', first db_Fields dockmdb];
+	if isnull allall then
+	    propatch_dimers_4B dockmdb;
+	else
+	    if max app isnull cat apt db_ReadColumn [dockmdb, allall] then
+		propatch_dimers_4B dockmdb;
+	    endif
+	endif
+    endif
+    local patchflds = findmatch ['*_covered_by_*', first db_Fields dockmdb];
+
+	// initialize variables for conformational search
+
+    local mol_conf;
+    local E;
+    local cmethod = opts.cmethod;
+    local mfield = db_FirstFieldType [dbfile, 'molecule'];
+
+	// If ConfSearch is 'As-Is' then determine which fields in the original
+	// PROTAC MDB need to be copied over to the final 3BM Output MDB
+
+    if cmethod == 'As-Is' then
+	local [origfld, origftype] = db_Fields dbfile;
+	local x = x_diff [origfld, mfield];
+    endif
+
+	// If requested, do the conformational search, looping over PROTAC MDB.
+	// This is done MPU-style, so initialize for that.
+
+    local copts = opts;
+    ents = db_Entries dbfile;
+    local le = length ents;
+    local msg2 = 0; local msg_txt2;
+    if cmethod <> 'As-Is' then
+	msg2 = Message [msg2, 'Generating PROTAC conformations'];
+	local res, code, seqno, udata, mol_confs, moe_confs, csearch_outs, arg,
+	    idx;
+	local cmd = 'call';
+	local numsuccess = 0;
+	local csearch_cycles = one igen le;
+	local curr_itr = 0;
+	copts.csearch_dir = cd[];
+	if MPU_HOSTCOUNT>1 and le > 1 then	// With only one, don't throttle
+	    local orig_tc = (pot_Setup []).threadCount;
+	    mpu_call [igen (MPU_HOSTCOUNT-1)+1, 'exe_setpriority', [[0,1]]];
+	    pot_Setup [threadCount:1];
+	endif
+	local src = (modenv[]).filename;
+	mpu_load [igen MPU_HOSTCOUNT, [src]];
+	i = 1;
+    
+	loop
+	    [res, code, seqno, udata] = [[], [], [], []];
+	    if cmd <> '' then
+		curr_itr = inc curr_itr;
+		if curr_itr > le then
+		    cmd = '';
+		else	// Run match_protac_binders (pretty fast) non-MPU
+		    mol_confs(curr_itr) = first db_ReadFields [dbfile,
+			ents(curr_itr), mfield];
+		    moe_confs(curr_itr) = match_protac_binders [dockmdb,
+			mol_confs(curr_itr)];
+		    arg = [moe_confs(curr_itr), copts, curr_itr, le];
+		    write twrite ['Generating conformations for PROTAC #{} '
+			'out of {}\n', curr_itr, le];
+		endif
+	    endif
+    
+	    [res, code, seqno, udata] = mpu_batch [cmd,
+		'__generate_conformations', arg, arg];
+		sleep 0.1;	// Give it a chance to get to the other hosts
+    
+	    if code === 'error' then
+		local [host, wh] = mpu_batch '$Where';
+		if eqL [last wh(1), 'f'] then wh = app droplast wh; endif
+		if notnull wh then
+		    local fcn	= ftrimname [wh(1), 30];// fcn name
+		    local lnum	= wh(4);		// line number
+		    local fn	= ftrimname [fenvname wh(3), 40];
+		    apt write ['    {t:-30u}\t{n:6} {}\n', fcn, lnum, fn];
+		endif
+
+    	    elseif code === '' then		// Results coming back
+		numsuccess = numsuccess + istrue seqno;
+		write token swrite ['Conformations generated for PROTAC #{} of '
+		    '{}\n', numsuccess, le];
+		idx = udata(3);
+		csearch_outs(idx) = res;
+    
+		    // Run pare_back if needed. This won't be done in parallel,
+		    // but it's unclear whether pare_back is ever invoked.
+    
+		if length db_Entries res <= 1 then
+		    while csearch_cycles(idx) <= 5 loop	// Pare back 5 times
+			local pare_conf = pare_back udata(1);
+			dbv_Close [dbv_KeyList[] | m_findmatch [tok_cat ['*',
+			    csearch_outs(idx), '*'],db_Filename dbv_KeyList[]]];
+			csearch_outs(idx) = __generate_conformations [pare_conf,
+			    copts, idx, le];
+			if length db_Entries csearch_outs(idx) > 1 then
+			    break;
+			else
+			    csearch_cycles(idx) = csearch_cycles(idx) + 1;
+			endif
+		    endloop
+		endif
+    
+	    elseif code === 'eof' then
+		break;
+	    endif
+	endloop
+	if notnull orig_tc then pot_Setup [threadCount:orig_tc]; endif
+    endif
+
+	// With multiple input PROTACs with LowMode or Stochastic, recombine
+	// the intermediate MDBs
+    
+    if (cmethod == 'LowModeMD' or cmethod == 'Stochastic') and le > 1 then
+	local tocat = tok_cat [fbase CSEARCH_TMP_MDB, '_', totok igen le,
+	    '.mdb'];
+	local writemdb = db_Open [CSEARCH_TMP_MDB, 'create'];
+	apt db_EnsureField [CSEARCH_TMP_MDB, first db_Fields tocat(1), second
+	    db_Fields tocat(1)];
+	local k = 1;
+	while k <= length tocat loop
+	    local n = 1;
+	    local catents = db_Entries tocat(k);
+	    while n <= length catents loop
+		local catrec = db_Read [tocat(k), catents(n)];
+		catrec.mseq = k;
+		db_Write [CSEARCH_TMP_MDB, 0, catrec];
+		n = n + 1;
+	    endloop
+	    dbv_Close tocat(k);
+	    _fdelete tocat(k);
+	    k = k + 1;
+	endloop
+	db_Close writemdb;
+    endif
+
+    msg2 = Message [msg2, []]; msg2 = 0;
+
+    if cmethod == 'As-Is' then
+	local ligmdb = copts.inmdb;
+    else
+	ligmdb = CSEARCH_TMP_MDB;
+	mfield = db_FirstFieldType [ligmdb, 'molecule'];
+    endif
+
+	// At this point, there are ligand conformations (in ligmdb) and docked
+	// protein-protein poses (in dockmdb). We need to superpose the ligands
+	// onto the P-P docking poses' ligands, but first (a) determine the
+	// centroid-centroid distance of the two matches in the ligands and
+	// (b) the same in the P-P docked poses. Be careful of different
+	// mseqs, too.
+
+    msg_txt2 = token swrite ['{}\n', 'Pre-processing P-P Docked Poses '
+	'and Ligand Conformations'];
+    write msg_txt2;
+    msg2 = Message [msg2, msg_txt2];
+
+    ents = db_Entries ligmdb;
+    local oldmseq = 0;	// Flag for rerunning match_protac_binders
+    i = 1;
+    db_EnsureField [ligmdb, 'intraligand', 'float'];
+    if isnull findmatch ['mseq', first db_Fields ligmdb] then
+	db_EnsureField [ligmdb, 'mseq', 'int'];
+	apt db_Write [ligmdb, ents, app nest tag ['mseq', 1]];
+    endif
+    while i <= length ents loop
+	local currmseq = db_ReadFields [ligmdb, ents(i), 'mseq'];
+	if currmseq <> oldmseq then
+	    local indices1 = match_protac_binders [dockmdb, cat db_ReadFields
+		[ligmdb, ents(i), mfield], 'protac1'];
+	    local indices2 = match_protac_binders [dockmdb, cat db_ReadFields
+		[ligmdb, ents(i), mfield], 'protac2'];
+	    oldmseq = currmseq;
+	endif
+	local c = mol_Create cat db_ReadFields [ligmdb, ents(i), mfield];
+	local match1 = (_Atoms 'lig and heavy')[indices1];
+	local cent1 = oCentroid match1;
+	local match2 = (_Atoms 'lig and heavy')[indices2];
+	local cent2 = oCentroid match2;
+	local dist = sqrt add sqr (cent1 - cent2);
+	oDestroy c;
+	db_Write [ligmdb, ents(i), tag ['intraligand', dist]];
+	i = i + 1;
+    endloop
+
+    ents = db_Entries dockmdb;
+    i = 1;
+    db_EnsureField [dockmdb, 'interpocket', 'float'];
+    while i <= length ents loop
+	if i == 1 then
+	    indices1 = match_protac_binders [dockmdb, cat db_ReadFields
+		[ligmdb, first db_Entries ligmdb, mfield], 'xtal1', i];
+	    indices2 = match_protac_binders [dockmdb, cat db_ReadFields
+		[ligmdb, first db_Entries ligmdb, mfield], 'xtal2', i];
+	endif
+	c = mol_Create cat db_ReadFields [dockmdb, ents(i), 'mol'];
+	match1 = cat cAtoms c;
+	oDestroy (match1 | aClassRLS match1 == 'rec');
+	match1 = match1 | oValid match1;
+	cofa1 = uniq aMoleculeNumber (match1 | aName match1 == 'COFA');
+	oDestroy (match1|apt m_join [aMoleculeNumber match1, [cofa1]]);
+	match1 = match1 | oValid match1;
+	match1 = match1 | aElement match1 <> 'H';
+	match1 = match1[indices1];
+	cent1 = oCentroid match1;
+	oDestroy c;
+	c = mol_Create cat db_ReadFields [dockmdb, ents(i), 'receptor'];
+	match2 = cat cAtoms c;
+	oDestroy (match2 | aClassRLS match2 == 'rec');
+	match2 = match2 | oValid match2;
+	cofa2 = uniq aMoleculeNumber (match2 | aName match2 == 'COFA');
+	oDestroy (match2|apt m_join [aMoleculeNumber match2, [cofa2]]);
+	match2 = match2 | oValid match2;
+	match2 = match2 | aElement match2 <> 'H';
+	match2 = match2[indices2];
+	cent2 = oCentroid match2;
+	oDestroy c;
+	dist = sqrt add sqr (cent1 - cent2);
+	db_Write [dockmdb, ents(i), tag ['interpocket', dist]];
+	i = i + 1;
+    endloop
+    msg2 = Message [msg2, []]; msg2 = 0;
+
+	// Calculate how many valid combinations are possible, i.e., that have
+	// a PPI with < the maximum allowable direct P-P covered SA AND that
+	// have the interpocket-vs-intraligand distance within 5A. Things are
+	// different with keep_int or if the P-P Stats weren't calculated,
+	// however. [Note that combos_m2, the interpocket-intraligand distance,
+	// is always in play].
+
+    local interpocket = db_ReadColumn [dockmdb, 'interpocket'];
+    local intraligand = db_ReadColumn [ligmdb, 'intraligand'];
+    if copts.bias and copts.pregen == 0 then
+	local ppsa1 = db_ReadColumn [dockmdb, 'Complex 1 hyd_patch SA'];
+	local ppsa2 = db_ReadColumn [dockmdb, 'Complex 2 hyd_patch SA'];
+    endif
+    local ligents = db_Entries ligmdb;
+    local suffix = igen length ents;
+    local ppfil = findmatch ['*_all_covered_by_*all', first db_Fields dockmdb];
+    if notnull ppfil then	// Calculate buried P-P SA
+	local totsa = app max tr apt db_ReadColumn [dockmdb, ppfil];
+    endif
+
+	// Can't filter on buried P-P SA if (a) we're keeping intermediates or
+	// (b) we don't have these values. Otherwise we can.
+
+    if copts.keep_int == 1 then
+	local totsa_m = one ents;
+    elseif isnull ppfil then
+	totsa_m = one ents;
+    else
+	totsa_m = totsa < copts.totsa;
+    endif
+    interpocket = interpocket | totsa_m;
+    suffix = suffix | totsa_m;
+    local combos = oext [interpocket, intraligand];
+    local labels = cat apt rep [suffix, length intraligand];
+    combos = app cat tr [combos, labels];
+    local conflabels = cat rep [x_id intraligand, length suffix];
+    combos = app cat tr [combos, conflabels];
+    local combos_m2 = abs (app first combos - app second combos) <= 5;
+    combos = combos | combos_m2;
+
+	// Setup the final MDB, as well as the temp MDBs that will be written
+	// to during the MPU loop
+
+    local finalmdb = db_Open [copts.dbout, 'create'];
+    local finalname = db_Filename finalmdb;
+    apt db_EnsureField [finalmdb, ['moe', 'mseq_lig', 'ligand'], ['moe', 'int',
+	'molecule']];
+    if notnull copts.premin_score then
+	apt db_EnsureField [finalmdb, THREE_BODY_SCORE_FIELDS(1),
+	    THREE_BODY_SCORE_FIELDS(2)];
+    endif
+    if notnull patchflds then
+	apt db_EnsureField [finalmdb, patchflds, 'float'];
+    endif
+    db_EnsureField [finalmdb, 'mseq', 'int'];
+    db_EnsureField [finalmdb, 'P-P Dock Pose #', 'int'];
+    apt db_EnsureField [finalmdb, ['dE', 'Ligand Core RMSD'], 'float'];
+    apt db_EnsureField [finalmdb, ['interpocket', 'intraligand'], 'float'];
+    db_Close finalmdb;
+
+	// Set up how many MPUs to run, based on copts.split. 1 means chunk
+	// by uniq mseq, whereas -1 means chunk evenly across MPU hosts,
+	// unless there are "too many" combos. This decision is also revisited
+	// when intermediate TMP MDBs are combined: if there's too much data,
+	// then rewrite them by uniq mseq. Don't bother if MPU = 1.
+
+    if length combos > AUTO_CHUNK then
+	copts.split = 1;	// Split
+    else
+	if isnull copts.split then
+	    copts.split = -1;	// Don't split (unless explicitly requested)
+	endif
+    endif
+    if MPU_HOSTCOUNT == 1 then copts.split = -1; endif;
+
+    local mseqs = db_ReadColumn [ligmdb, 'mseq'];
+    if copts.split == -1 then
+	local chunks = split [combos, ceil ((length combos) / MPU_HOSTCOUNT)];
+    elseif copts.split == 1 then
+	local mseq_ligs = app last combos;
+	local split_x = apt get [[mseqs], mseq_ligs];
+	local u_split_x = uniq split_x;
+	i = 1;
+	while i <= length u_split_x loop
+	    local m_split = split_x == u_split_x(i);
+	    chunks(i) = combos | m_split;
+	    i = i + 1;
+	endloop
+    endif
+    local tempmdbs = tok_cat [fbase finalname, '_', totok igen length chunks,
+	'.mdb'];
+    if MPU_HOSTCOUNT == 1 then
+	tempmdbs = finalname;
+	if copts.dbvopen_out then
+	    dbv_Open finalname;
+	endif
+    else
+	apt fcopydel [finalname, tempmdbs];
+    endif
+
+	// Loop over the chunked combos, MPU-style
+
+    if MPU_HOSTCOUNT>1 then
+	orig_tc = (pot_Setup []).threadCount;
+	mpu_call [igen (MPU_HOSTCOUNT-1)+1, 'exe_setpriority', [[0,1]]];
+	pot_Setup [threadCount:1];
+	local fm = m_findmatch [tok_cat ['*', toupper fbase ftail dockmdb,'*'],
+	    toupper db_Filename dbv_KeyList []];
+	dbv_Close (dbv_KeyList[] | fm);
+    endif
+    cmd = 'call';
+    curr_itr = 0;
+    numsuccess = 0;
+    msg2 = Message [msg2, 'Forming Ternary Complexes'];
+    write twrite 'Forming Ternary Complexes\n';
+    src = (modenv[]).filename;
+    mpu_load [igen MPU_HOSTCOUNT, [src]];
+
+    loop
+	[res, code, seqno, udata] = [[], [], [], []];
+	if cmd <> '' then
+	    curr_itr = inc curr_itr;
+	    if curr_itr > length chunks then
+		cmd = '';
+	    else
+		arg = [chunks(curr_itr), ffullname dockmdb, ffullname ligmdb,
+		    tempmdbs(curr_itr), x, copts];
+	    endif
+	endif
+
+	[res, code, seqno, udata] = mpu_batch [cmd, '__make_combos', arg, arg];
+	sleep 0.1;
+
+	if code === 'error' then
+	    [host, wh] = mpu_batch '$Where';
+	    if eqL [last wh(1), 'f'] then wh = app droplast wh; endif
+	    if notnull wh then
+		fcn	= ftrimname [wh(1), 30];// fcn name
+		lnum	= wh(4);		// line number
+		fn	= ftrimname [fenvname wh(3), 40];
+		apt write ['    {t:-30u}\t{n:6} {}\n', fcn, lnum, fn];
+	    endif
+
+	elseif code === '' then		// Results coming back
+	    numsuccess = numsuccess + istrue seqno;
+	    write token swrite ['Finished making ternary complexes, batch {} '
+		'of {}\n', numsuccess, length chunks];
+	elseif code === 'eof' then
+	    break;
+	endif
+    endloop
+
+	// Clean-up -- if there's too much data to lump into one MDB, then
+	// separate each temp MDB instead by uniq mseq
+
+    msg2 = Message [msg2, []]; msg2 = 0;
+    msg = Message [msg, []]; msg = 0;
+    if notnull orig_tc then pot_Setup [threadCount:orig_tc]; endif
+    if add fsize tempmdbs > 7000000000 then
+	copts.split = 1;	// Revert to splitting results by mseq
+    endif
+
+    if copts.split == 1 then
+	local finalnames;	// Insert mseq_ into MDB outnames
+	i = 1;
+	local u_mseqs = uniq mseqs;
+	local s_tmp = string tempmdbs(1);
+	local s_s_tmp = split [s_tmp, max cat indicesof [1, s_tmp == "_"]];
+	while i <= length u_mseqs loop
+	    finalnames(i) = tok_cat [token s_s_tmp(1), 'mseq_', totok
+		u_mseqs(i), '.mdb'];
+	    db_Open [finalnames(i), 'create'];
+	    apt db_EnsureField [finalnames(i), first db_Fields tempmdbs(1),
+		second db_Fields tempmdbs(1)];
+	    i = i + 1;
+	endloop
+    else
+	apt db_EnsureField [finalname, first db_Fields tempmdbs(1), second
+	    db_Fields tempmdbs(1)];
+    endif
+			     
+    if MPU_HOSTCOUNT > 1 then
+	i = 1;
+	while i <= length tempmdbs loop
+	    local tempents = db_Entries tempmdbs(i);
+	    j = 1;
+	    while j <= length tempents loop
+		local temprec = db_Read [tempmdbs(i), tempents(j)];
+		if copts.split <> 1 then	// No split
+		    local dstent = db_Write [finalname, 0, temprec];
+		    if copts.outfiles and not copts.min_out then
+			output_pdb_sdf [copts, dstent, finalname];
+		    endif
+		else
+		    local mseq_x = temprec.mseq;
+		    dstent = db_Write [finalnames(mseq_x), 0, temprec];
+		    if copts.outfiles and not copts.min_out then
+			output_pdb_sdf [copts, dstent, finalnames(mseq_x)];
+		    endif
+		endif
+		j = j + 1;
+	    endloop
+	    _fdelete tempmdbs(i);
+	    i = i + 1;
+	endloop
+    endif
+
+	// All the post-processing steps must be done in a loop, in case split
+	// was used
+
+    if isnull finalnames then
+	finalnames = finalname;
+    else
+	_fdelete finalname;
+    endif
+    k = 1;
+    while k <= length finalnames loop
+	finalname = finalnames(k);
+
+	    // Energy-based scores -- only done pre-min if explicitly forced
+    
+	local finalents = db_Entries finalname;
+	local pdata2 = SystemPush[];
+	i = 1;
+	if notnull copts.premin_score then
+	    msg_txt2 = token swrite ['{}\n', 'Scoring ternary complexes'];
+	    msg2 = Message [msg2, msg_txt2];
+	    write msg_txt2;
+        
+	    while i <= length finalents loop
+		local score_c = first _moe_Create db_ReadFields [finalname,
+		    finalents(i), 'moe'];
+		copts.all_atoms = Atoms[];
+		local score_data = three_body_score4 copts;
+		db_Write [finalname, finalents(i), score_data];
+		oDestroy score_c;
+		i = i + 1;
+	    endloop
+	endif
+    	SystemPop pdata2;
+	if copts.dbvopen_out then
+	    dbv_Open finalname;
+	endif
+    
+	    // Perform rigid body minimization, if specified. After minimizing,
+	    // recalculate the energy scores, and produce new P-L overlap
+	    // metrics. Sort output by the total energetic Rec-Lig interaction.
+	    // Write the final output to PDBs & SDFs, if requested.
+    
+	if copts.min_out then
+	    rigid_bb_min finalname;
+	    db_Sort [finalname, 'Eint_Rec_lig', 0];
+	    if copts.outfiles then
+		finalents = db_Entries finalname;
+		i = 1;
+		while i <= length finalents loop
+		    output_pdb_sdf [copts, finalents(i), finalname];
+		    i = i + 1;
+		endloop
+	    endif
+	endif
+    
+	    // Cluster, if requested, and if there are any poses
+    
+	if copts.clust then
+	    if notnull db_Entries finalname then
+		double_cluster db_Filename finalname;
+	    endif
+	endif
+    
+	    // Add in output MDB field bubblehelps and make the summary report
+	    // (reports uniqified, if required)
+    
+	add_field_bubblehelps db_Filename finalname;
+	if length finalnames > 1 then
+	    summary_report [db_Filename finalname, k];
+	else
+	    summary_report db_Filename finalname;
+	endif
+    	k = k + 1;
+    endloop
+
+	// Make just one final summary report, if necessary
+
+    local sumnames = flist [[], '4B_DCP_Summary_*.txt'];
+    if length sumnames > 1 then
+	combine_reports sumnames;
+    endif
+
+    write 'Three-body modeling completed\n';
+    SystemPop pdata;
+    exit[];
+endfunction
+//------------------------------------------------------------------------------
+// GUI utilities
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// function summary_report mdb
+//	Write a quick plain-text logfile report with the maximum Double Cluster
+//	Population per mseq. Note that we bail out if there's no mseq (which
+//	might be an unnecessary precaution), and of course if the clustering
+//	wasn't requested.
+//------------------------------------------------------------------------------
+local function summary_report [mdb, mseqnum]
+    local fields = first db_Fields mdb;
+    local reqfields = ['mseq', 'Double Cluster Population'];
+    if (min apt m_join [reqfields, [fields]]) == 0 then
+	return;
+    endif
+    local mseq = db_ReadColumn [mdb, 'mseq'];
+    local dcp = db_ReadColumn [mdb, 'Double Cluster Population'];
+    local lignames = app first db_ReadColumn [mdb, 'ligand'] | btom mseq;
+    local v = [uniq mseq, app max split [dcp, btoc mseq], lignames];
+    local fn = app token wordsplit [asctime[], " "];
+    if notnull mseqnum then
+	fn = tok_cat ['4B_DCP_Summary_', fn(5), '_', fn(2), '_', fn(3), 
+	    '_mseq_', totok mseqnum, '.txt'];
+    else
+	fn = tok_cat ['4B_DCP_Summary_', fn(5), '_', fn(2), '_', fn(3), '.txt'];
+    endif
+    
+    local fh = fopenw fn;
+    fwrite [fh,
+	'mseq\tMaximum Double Cluster Population\tLigand Name\n'
+	'====\t=================================\t===========\n'
+    ];
+    apt fwrite [fh, ' {}\t\t\t{}\t\t\t{}\n', v(1), v(2), v(3)];
+    fclose fh;
+endfunction
+//------------------------------------------------------------------------------
+// function combine_reports
+//	Combine multiple summary reports into one
+//------------------------------------------------------------------------------
+local function combine_reports sumnames
+    local s_names = app string sumnames;
+    local pfx = app last apt wordsplit [app string sumnames, "_"];
+    local mseqs = app toint app token app cat apt wordsplit [pfx, [".txt"]];
+    local files = perm [sumnames, rank mseqs];
+    local i = 1;
+    local fn = app token wordsplit [asctime[], " "];
+    fn = tok_cat ['4B_DCP_Summary_', fn(5), '_', fn(2), '_', fn(3), '.txt'];
+    local fh = fopenw fn;
+    fwrite [fh,
+	'mseq\tMaximum Double Cluster Population\tLigand Name\n'
+	'====\t=================================\t===========\n'
+    ];
+    while i <= length files loop
+	local data = last freadb [files(i), 'line', INT_MAX];
+	fwrite [fh, ' {}\n', data];
+	_fdelete files(i);
+	i = i + 1;
+    endloop
+    fclose fh;
+endfunction
+//------------------------------------------------------------------------------
+// function add_field_bubblehelps mdb
+//	Add bubbleHelps to the fields in the output MDB. This function is
+//	generalized across all Methods, and so not all fields shown below will
+//	always apply to this particular output MDB
+//------------------------------------------------------------------------------
+local function add_field_bubblehelps mdb
+    local allfields = [
+	'# Exposed Lys (Rec1)',
+	'# Exposed Lys (Rec2)',
+	'# Exposed Lys (total)',
+	'# Lys (Rec1)',
+	'# Lys (Rec2)',
+	'# Lys (total)',
+	'chi',
+	'Cluster_3',
+	'Complex 1 hyd_patch SA',
+	'Complex 2 hyd_patch SA',
+	'dE',
+	'Double Cluster Population',
+	'E_lig',
+	'E_lig0',
+	'ecc',
+	'Eint_Rec_lig', 
+	'Eint_Rec_lig_ele',
+	'Eint_Rec_lig_vdw', 
+	'Eint_Rec1_lig',
+	'Eint_Rec1_lig_ele',
+	'Eint_Rec1_lig_vdw',
+	'Eint_Rec1Rec2', 
+	'Eint_Rec1Rec2_ele',
+	'Eint_Rec1Rec2_vdw',
+	'Eint_Rec2_lig',
+	'Eint_Rec2_lig_ele',
+	'Eint_Rec2_lig_vdw',
+	'Etot',
+	'Exposed Lys (all)',
+	'Exposed Lys (Rec1)',
+	'Exposed Lys (Rec2)',
+	'glob',
+	'interpocket',
+	'intraligand',
+	'L3xP10',
+	'lig_E',
+	'lig_Eint',
+	'Ligand Core RMSD',
+	'ligand',
+	'ligand_E',
+	'ligand_E_PP',
+	'moe',
+	'mseq',
+	'mseq_lig',
+	'P_Cluster_10',
+	'P-P Dock Pose #',
+	'Rec1_all_covered_by_Rec2_all',
+	'Rec1_all_covered_by_Rec2_any',
+	'Rec1_all_covered_by_Rec2_hyd',
+	'Rec1_any_covered_by_Rec2_all',
+	'Rec1_any_covered_by_Rec2_any',
+	'Rec1_any_covered_by_Rec2_hyd',
+	'Rec1_hyd_covered_by_Rec2_all',
+	'Rec1_hyd_covered_by_Rec2_any',
+	'Rec1_hyd_covered_by_Rec2_hyd',
+	'Rec2_all_covered_by_Rec1_all',
+	'Rec2_all_covered_by_Rec1_any',
+	'Rec2_all_covered_by_Rec1_hyd',
+	'Rec2_any_covered_by_Rec1_all',
+	'Rec2_any_covered_by_Rec1_any',
+	'Rec2_any_covered_by_Rec1_hyd',
+	'Rec2_hyd_covered_by_Rec1_all',
+	'Rec2_hyd_covered_by_Rec1_any',
+	'Rec2_hyd_covered_by_Rec1_hyd',
+	'rgyr',
+	'RMSD_RF (A)',
+	'RMSD_RF',
+	'RMSD_RF_PP',
+	'S_all',
+	'S_bbone',
+	'S_Rec1_lig_all',
+	'S_Rec1_lig_bbone',
+	'S_Rec2_lig_all',
+	'S_Rec2_lig_bbone',
+	'source_mdb'];
+
+    local allbh = [
+	'The number of Lys on Rec1 more than 50% exposed',
+	'The number of Lys on Rec2 more than 50% exposed',
+	'The number of Lys on both receptors more than 50% exposed',
+	'The number of Lys on Rec1',
+	'The number of Lys on Rec2',
+	'The number of Lys on both receptors',
+	'The chiral class of the PROTAC conformation',
+	'The PROTAC cluster identity number using a 3A RMSD clustering '
+	    'threshold',
+	'The surface area (A2) of the hydrophobic patch used as the PPD Site on'
+	    ' Complex 1',
+	'The surface area (A2) of the hydrophobic patch used as the PPD Site on'
+	    ' Complex 2',
+	'The relative energy (kcal/mol) of this PROTAC conformer relative to '
+	    'the lowest energy conformer',
+	'The number of ternary complexes belonging to the Double Cluster with '
+	    'the accompanying L3xP10 identifier',
+	'The sum of the van der Waals and electrostatic energy of the ligand '
+	    '(kcal/mol)',
+	'The energy (kcal/mol) of the ligand at the nearest in vacuo minimum '
+	    '(included bonded & nonbonded terms)',
+	'The eccentricity of the PROTAC conformation',
+	'The total interaction energy (kcal/mol) of the PROTAC with both '
+	    'proteins',
+	'The electrostatic contribution to the total interaction energy '
+	    '(kcal/mol) of the PROTAC with both proteins',
+	'The van der Waals contribution to the total interaction energy '
+	    '(kcal/mol) of the PROTAC with both proteins',
+	'The total interaction energy (kcal/mol) of the PROTAC with Rec1',
+	'The electrostatic contribution to the total interaction energy '
+	    '(kcal/mol) of the PROTAC with Rec1',
+	'The van der Waals contribution to the total interaction energy '
+	    '(kcal/mol) of the PROTAC with Rec1',
+	'The total interaction energy (kcal/mol) between Rec1 and Rec2',
+	'The electrostatic contribution to the total interaction energy '
+	    '(kcal/mol) between Rec1 and Rec2',
+	'The van der Waals contribution to the total interaction energy '
+	    '(kcal/mol) between Rec1 and Rec2',
+	'The total interaction energy (kcal/mol) of the PROTAC with Rec2',
+	'The electrostatic contribution to the total interaction energy '
+	    '(kcal/mol) of the PROTAC with Rec2',
+	'The van der Waals contribution to the total interaction energy '
+	    '(kcal/mol) of the PROTAC with Rec2',
+	'The total energy (kcal/mol) of the ternary complex',
+	'List of the Lys on both receptors more than 50% exposed',
+	'List of the Lys on Rec1 more than 50% exposed',
+	'List of the Lys on Rec2 more than 50% exposed',
+	'The globularity of the PROTAC conformation',
+	'The distance (A) between the centroids of the two binders in the P-P '
+	    'Docked MDB',
+	'The distance (A) between the centroids of the two binders of the '
+	    'PROTAC conformation',
+	'A concatenation of the ligand (L) cluster identifier (Cluster_3) and '
+	    'the protein (P) cluster identifier (P_Cluster_10)',
+	'The energy (kcal/mol) of the spanned PROTAC in the ternary complex, '
+	    'used in conjunction with the ligand_E threshold',
+	'The internal energy (kcal/mol) of the spanned PROTAC in the ternary '
+	    'complex',
+	'The RMSD (in A) of the second binder of the PROTAC as it is minimized.'
+	    ' Refer to the manual for further details',
+	'The conformation of the PROTAC in the final ternary complex',
+	'A 1 indicates that this ternary complex passed the defined ligand_E '
+	    'threshold (0 otherwise)',
+	'A 1 indicates that this ternary complex passed both the defined '
+	    'ligand_E and ligand_E_PP thresholds (0 otherwise)',
+	'The structure of the modeled ternary complex',
+	'A unique identifier number for each distinct PROTAC. Different '
+	    'conformations of the same PROTACs have the same mseq',
+	'The row number of the PROTAC in csearch_tmp.mdb used in this ternary '
+	    'complex',
+	'The protein cluster identity number using a 10A C_alpha RMSD '
+	    'clustering threshold',
+	'The row number of the P-P Docked pose in the input (or generated) PPD '
+	    'MDB',
+	'The total surface area (A2) of Rec1 covered by Rec2',
+	'The total surface area (A2) of Rec1 covered by any pos, neg, or hyd '
+	    'patch on Rec2',
+	'The total surface area (A2) of Rec1 covered by any hyd patch on Rec2',
+	'The surface area (A2) of any pos, neg, or hyd patch on Rec1 covered by'
+	    ' Rec2',
+	'The surface area (A2) of any pos, neg, or hyd patch on Rec1 covered by'
+	    ' any pos, neg, or hyd patch on Rec2',
+	'The surface area (A2) of any pos, neg, or hyd patch on Rec1 covered by'
+	    ' any hyd patch on Rec2',
+	'The surface area (A2) of any hyd patch on Rec1 covered by Rec2',
+	'The surface area (A2) of any hyd patch on Rec1 covered by any pos, '
+	    'neg, or hyd patch on Rec2',
+	'The surface area (A2) of any hyd patch on Rec1 covered by any hyd '
+	    'patch on Rec2',
+	'The total surface area (A2) of Rec2 covered by Rec1',
+	'The total surface area (A2) of Rec2 covered by any pos, neg, or hyd '
+	    'patch on Rec1',
+	'The total surface area (A2) of Rec2 covered by any hyd patch on Rec1',
+	'The surface area (A2) of any pos, neg, or hyd patch on Rec2 covered '
+	    'by Rec1',
+	'The surface area (A2) of any pos, neg, or hyd patch on Rec2 covered '
+	    'by any pos, neg, or hyd patch on Rec1',
+	'The surface area (A2) of any pos, neg, or hyd patch on Rec2 covered '
+	    'by any hyd patch on Rec1',
+	'The surface area (A2) of any hyd patch on Rec2 covered by Rec1',
+	'The surface area (A2) of any hyd patch on Rec2 covered by any pos, '
+	    'neg, or hyd patch on Rec1',
+	'The surface area (A2) of any hyd patch on Rec2 covered by any hyd '
+	    'patch on Rec1',
+	'The radius of gyration (A) of the PROTAC conformation',
+	'The RMSD (A) of the spanned PROTAC after it is minimized (including '
+	    'R-Field solvation) after the two proteins are removed',
+	'A 1 indicates that this ternary complex passed the defined RMSD_RF '
+	    'threshold (0 otherwise)',
+	'A 1 indicates that this ternary complex passed both the defined '
+	    'RMSD_RF and RMSD_RF_PP thresholds (0 otherwise)',
+	'The volume overlap (A3) between the two proteins',
+	'The volume overlap (A3) of the backbone atoms between the two '
+	    'proteins',
+	'The volume overlap (A3) between the PROTAC and Rec1',
+	'The volume overlap (A3) between the PROTAC and the backbone atoms of '
+	    'Rec1',
+	'The volume overlap (A3) between the PROTAC and Rec2',
+	'The volume overlap (A3) between the PROTAC and the backbone atoms of '
+	    'Rec2',
+	'If multiple P-P Docking runs were performed, the identiy of the '
+	    'individual PPD simulation for this pose'];
+
+	// Only set the field env for fields that are present
+
+    local fields = first db_Fields mdb;
+    local m = apt m_join [allfields, [fields]];
+    apt db_SetFieldEnv [mdb, allfields|m, 'dbv_field_bubblehelp', allbh|m];
+endfunction
+//------------------------------------------------------------------------------
+// function sanity_checks vals
+//	Make sure all input/output options are sane (1=sane, 0=not)
+//------------------------------------------------------------------------------
+local function sanity_checks v
+
+    if v.inmdb == '' then
+	Warning 'Please specify a PROTAC MDB';
+	return 0;
+    endif
+
+    if v.rc1 == '' and v.do_pp then
+	Warning 'Please specify Receptor/Ligand Complex 1';
+	return 0;
+    endif
+
+    if v.rc2 == '' and v.do_pp then
+	Warning 'Please specify Receptor/Ligand Complex 2';
+	return 0;
+    endif
+
+    if v.do_pp_out == '' and v.do_pp then
+	Warning 'Please specify a Protein-Protein Output MDB';
+	return 0;
+    endif
+
+    if v.pp_in == '' and v.pregen then
+	Warning 'Please specify an MDB for Pregenerated P-P Poses';
+	return 0;
+    endif
+
+    if v.dbout == '' then
+	Warning 'Please specify an Output Database';
+	return 0;
+    endif
+
+    if v.outfiles and v.filedir == '' then
+	Warning 'Please specify an Output directory';
+	return 0;
+    endif
+
+	// Check to make sure there's only one ligand in the Complexes.
+	// There's no match sanity check, because the match is very fuzzy (and
+	// probably even a single phenyl in common between the binders and the
+	// PROTACs would pass). Any molecule with an atom named 'COFA' is
+	// exempted (mechanism to allow COFActors).
+
+    local pdata = SystemPush [];
+    if v.do_pp then		// Perform P-P docking on-the-fly
+	local c = ReadAuto v.rc1;
+    else			// Pregenerated P-P poses
+	local mdb = v.pp_in;
+	local rec = db_ReadFields [mdb, first db_Entries mdb, 'receptor'];
+	c = mol_Create cat rec;
+    endif
+
+    local lig1 = _Atoms 'lig';
+    local cofa1 = uniq aMoleculeNumber (lig1 | aName lig1 == 'COFA');
+    lig1 = lig1 | not apt m_join [aMoleculeNumber lig1, [cofa1]];
+    if (length lig1) == 0 then
+	Warning 'No ligand found in Receptor/Ligand Complex 1.';
+	SystemPop pdata;
+	return 0;
+    elseif (length uniq aMoleculeNumber lig1) > 1 then
+	Warning 'Receptor/Ligand Complex 1 contains more than one ligand.\n'
+		 'Please delete all ligands except the binder.';
+	SystemPop pdata;
+	return 0;
+    endif
+    oDestroy c;
+
+    if v.do_pp then		// Perform P-P docking on-the-fly
+	c = ReadAuto v.rc2;
+    else			// Pregenerated P-P poses
+	mdb = v.pp_in;
+	rec = db_ReadFields [mdb, first db_Entries mdb, 'mol'];
+	c = mol_Create cat rec;
+    endif
+
+    local lig2 = _Atoms 'lig';
+    local cofa2 = uniq aMoleculeNumber (lig2 | aName lig2 == 'COFA');
+    lig2 = lig2 | not apt m_join [aMoleculeNumber lig2, [cofa2]];
+    if (length lig2) == 0 then
+	Warning 'No ligand found in Receptor/Ligand Complex 2.';
+	SystemPop pdata;
+	return 0;
+    elseif (length uniq aMoleculeNumber lig2) > 1 then
+	Warning 'Receptor/Ligand Complex 2 contains more than one ligand.\n'
+		 'Please delete all ligands except the binder.';
+	SystemPop pdata;
+	return 0;
+    endif
+    oDestroy c;
+    SystemPop pdata;
+
+	// If As-Is is being used, make sure there are conformations in the
+	// PROTAC Source (MDB only)
+
+    local mdbchk = _is_file_MDB v.inmdb;
+    if v.cmethod == 'As-Is' then
+	if mdbchk then
+	    if isnull findmatch ['mseq', first db_Fields v.inmdb] then
+		local ans = YesNo twrite [
+		    'Conformations are set to be used As-Is, but there is no '
+		    'mseq field in\n{}\nto identify unique conformations.\n\n'
+		    'Click Yes to treat all entries in the input PROTAC MDB\n'
+		    'as conformations of the same PROTAC.\n\n'
+		    'Click No to go back', ftail v.inmdb];
+		if ans == 0 then
+		    return 0;
+		endif
+	    endif
+        endif
+    endif
+
+	// If LowModeMD is being used, make sure that there aren't already
+	// conformations (i.e., duplicate mseq values) in the PROTAC Source
+	// (MDB only)
+
+    if v.cmethod == 'LowModeMD' then
+	if mdbchk === 'moe_mdb' then
+	    if notnull findmatch ['mseq', first db_Fields v.inmdb] then
+		local mseq = db_ReadColumn [v.inmdb, 'mseq'];
+		if (max btoc mseq) > 1 then
+		    Warning twrite
+			['Conformations is set to LowModeMD, but\n\n{}\n\n'
+			 'seems to already contain conformations.\n'
+			 'To proceed, either delete the mseq field in\n\n{}\n\n'
+			 'or change Conformations: to As-Is', v.inmdb, v.inmdb];
+		    return 0;
+		endif
+	    endif
+        endif
+    endif
+
+	// Made it, return that it's sane, as well as new values
+
+    return [1,v];
+endfunction
+
+//------------------------------------------------------------------------------
+// Main GUI
+//------------------------------------------------------------------------------
+function three_body_csearch_method4B_GUI[]
+    local panel = [
+	title:'Three-Body Conformational Search: Method 4B',
+	windowName:'Three-Body Conformational Search: Method 4B',
+	name:'shell', onTrigger:['return', 'return', 'exit'],
+	bubbleHelp:
+	    ['Run the calculation',
+	    'Setup the panel, then use this button to save an SVL file that\n'
+	    'can be run later (e.g., via moebatch)',
+	    'Close the panel'],
+	text:['OK','Generate Batch File','Close'],
+	Hbox:[ columns:3, extendH:1, flushLeft:1, resizeH:1, 
+	    Separator:[extendH:1, flushLeft:1, resizeH:1],
+	    Label:[text:'Input'],
+	    Separator:[extendH:1, flushLeft:1, resizeH:1]
+	],
+	Hbox: [columns:2, centerH:1, spacingH:'medium',
+	    Checkbox: [font:'mediumBold', name: 'do_pp',
+		text: 'Perform Protein-Protein Docking', onTrigger: 'return',
+		checkboxStyle: 'roundRadioMark', bubbleHelp:
+		    'Specify two protein-ligand complexes below -- these two\n'
+		    'complexes will be docked together on-the-fly.'
+	    ],
+	    Checkbox: [font:'mediumBold',
+		name: 'pregen', checkboxStyle: 'roundRadioMark',
+		text: 'Use Pregenerated Protein-Protein Docking Results',
+		onTrigger: 'return', bubbleHelp:
+		    'Specify an MDB below on the Pregenerated P-P Poses line.\n'
+		    'The specified MDB must have been produced using MOE\'s\n'
+		    'Protein-Protein Docking tools, and each protein must\n'
+		    'contain a ligand functionality as well.'
+	    ]
+	],
+	Hbox:[columns:2,
+	    Text:[
+		name:'inmdb', title:'PROTAC Source:', len:40, extendH:1,
+		resizeH:1, bubbleHelp:
+		    'Specify the source of one or more PROTAC molecules.\n'
+		    'Acceptable source filetypes are MDB, SDF, or SMILES\n'
+		    '(i.e., plain-text). Washing will automatically be\n'
+		    'performed for SDF and SMILES inputs.'
+	    ],
+	    Button:[
+		name:'br_inmdb', text:'Browse...', onTrigger:'return'
+	    ]
+	],
+	Hbox:[columns:2, centerH:1,
+	    Option: [
+		name:'prot', title: 'Protomers during Wash:', text:
+		['Dominant', 'None', 'Neutralize'], collapse:1,
+		onTrigger: 'return', value: THREE_BODY_CSEARCH4_DEFAULTS.prot,
+		bubbleHelp:
+		    'Specifies how atom charge states should be set:\n'
+		    'Dominant determines the most abundant protomer at pH 7,\n'
+		    'None does not change the charge state,\n'
+		    'and Neutralize replaces charged molecules with:\n'
+		    '    a) A protonation state in which all atoms are\n'
+		    '       neutral, if possible, otherwise\n'
+		    '    b) A protonation state in which the species is\n'
+		    '       neutral overall, if possible, otherwise\n'
+		    '    c) The least charge-bearing form of the structure.'
+	    ],
+	    Checkbox: [
+		name:'threed', text: 'Generate 3D Coordinates', collapse:1,
+		value:THREE_BODY_CSEARCH4_DEFAULTS.threed, bubbleHelp:
+		'After washing, generate reasonable minimized\n'
+		'coordinates for the molecules in PROTAC Source'
+	    ]
+	],
+	Hbox:[columns:2, 
+	    Text:[
+		name:'rc1', title:'Receptor/Ligand Complex 1:', len:40,
+		extendH:1, resizeH:1, bubbleHelp:
+		    'Specify a file (.moe or .pdb) containing BOTH the\n'
+		    'first receptor in the final ternary complex AND\n'
+		    'the binding moiety of the PROTAC that is in a suitable\n'
+		    'pocket in Receptor 1.'
+	    ],
+	    Button:[
+		name:'br_rc1', text:'Browse...',onTrigger:'return'
+	    ],
+	    Text:[
+		name:'rc2', title:'Receptor/Ligand Complex 2:', len:40,
+		extendH:1, resizeH:1, bubbleHelp:
+		    'Specify a file (.moe or .pdb) containing BOTH the\n'
+		    'second receptor in the final ternary complex AND\n'
+		    'the binding moiety of the PROTAC that is in a suitable\n'
+		    'pocket in Receptor 2.'
+	    ],
+	    Button:[
+		name:'br_rc2', text:'Browse...',onTrigger:'return'
+	    ],
+	    Text:[
+		name: 'do_pp_out', title: 'Protein-Protein Output MDB:', len:40,
+		extendH:1, resizeH:1, bubbleHelp:
+		    'Specify the output MDB where protein-protein docking\n'
+		    'poses will be stored.'
+	    ],
+	    Button:[
+		name: 'br_do_pp_out', text:'Browse...', onTrigger: 'return'
+	    ]
+	],
+	Checkbox: [
+	    name:'bias', onTrigger: 'return',
+	    text: 'Perform multiple Protein-Protein Docking Runs to match '
+		  'hydrophobic patches',
+	    bubbleHelp:
+		'If enabled, protein patches will be evaluated for Complexes\n'
+		'1 and 2. Repeated protein-protein docking runs will then be\n'
+		'performed where each hydrophobic patch near the ligand site\n'
+		'of Complex 1 will be matched up against hydrophobic patches\n'
+		'near the ligand site of Complex 2.\n\n'
+		'NOTE: This option will increase both run time and the amount\n'
+		'of generated output data!'
+	],
+	Checkbox: [extendH:0, value:THREE_BODY_CSEARCH4_DEFAULTS.patches,
+	    text: 'Calculate Protein Patch Statistics for Docked Poses',
+	    name:'patches', bubbleHelp:
+	    'Automatically calculate changes in buried patches as the\n'
+	    'proteins of the ternary complex engage one another',
+	    onTrigger:'return'
+	],
+	Hbox:[columns:2, 
+	    Text:[
+		name:'pp_in', title:'Pregenerated P-P Poses:', len:40,
+		extendH:1, resizeH:1, bubbleHelp:
+		    'Specify an MDB containing poses pregenerated with\n'
+		    'MOE\'s Protein-Protein Docking tool. Both the \'mol\'\n'
+		    'and \'receptor\' column must contain a ligand.'
+	    ],
+	    Button:[
+		name: 'br_pp_in', text:'Browse...', onTrigger: 'return'
+	    ]
+	],
+	Hbox:[ columns:3, extendH:1, flushLeft:1, resizeH:1, 
+	    Separator:[extendH:1, flushLeft:1, resizeH:1],
+	    Label:[text:'Conformational Search & Filters Settings'],
+	    Separator:[extendH:1, flushLeft:1, resizeH:1]
+	],
+	Hbox:[columns:3, flushLeft:1, spacingH:'medium', extendH:1,
+	    Option:[onTrigger:'return', extendH:0,
+		name:'cmethod', title:'Conformations:', text: ['LowModeMD',
+		'As-Is'], bubbleHelp:
+		'LowModeMD: Generate conformations with LowModeMD\n'
+		'As-Is: Read in conformations from the PROTAC MDB'
+	    ],
+	    Text:[extendH:0, name:'totsa', bubbleHelp:
+		'Only keep poses where there is at MOST this much total\n'
+		'surface area covered as the two proteins form a putative\n'
+		'ternary complex. Note that this value does not involve\n'
+		'the concept of "protein patches" -- it is just the maximum\n'
+		'surface area buried on one protein by the other.',
+		type: 'real', title: 'Max P-P contact area (A^2)'
+	    ],
+	    Text:[extendH:0, name:'corermsd', bubbleHelp:
+		'After superposing a ligand conformation onto Cores 1 and 2,\n'
+		'a restrained minimization is performed. The RMSD of the two\n'
+		'cores before and after this minimization is calculated.\n'
+		'A high value indicates that the ligand conformation moved\n'
+		'quite a bit after minimization, and thus might not be\n'
+		'a suitable conformation for ternary complex formation. Thus,\n'
+		'only complexes where the cores move LESS than this threshold\n'
+		'are kept.', type:'real', title:'Ligand Core RMSD'
+	    ],
+	    
+// S_all_max and S_bbone_max aren't really relevant in a P-P Dock context
+/*
+	Text:[extendH:0,name:'S_all_max',title:'Max. Overlap (all) A^3:',
+	    len:8, type:'real', bubbleHelp:
+		'After Receptors 1 and 2 are superposed on each PROTAC\n'
+		'conformer, the volume overlap between the two receptors\n'
+		'is calculated. Ternary complexes with greater than this\n'
+		'amount of overlap will be rejected.'
+	],
+	Text:[extendH:1, name:'S_bbone_max',title:'Max. Overlap (bbone) A^3:',
+	    len:8, type:'real', bubbleHelp:
+		'Similar to Max Overlap (all), but only considering the\n'
+		'overlap amongst backbone atoms of Receptors 1 and 2.'
+	],
+	Label:[],
+*/
+	    Text:[extendH:1, name:'cutoff', title:'Energy Window:', len:10,
+		type:'real', bubbleHelp:
+		    'Only accept conformations that are within this value\n'
+		    '(in kcal/mol) of the lowest energy conformation yet found.'
+	    ],
+	    Text:[extendH:1, name:'maxit', title:'Iteration Limit:',len:8,
+		type:'real', bubbleHelp:
+		    'Try to generate at most this many conformations'
+	    ],
+	    Text:[extendH:1, name:'gtest', title:'RMS Gradient:', len:8,
+		type:'real', bubbleHelp:
+		    'Criterion to determine how strictly to minimize the\n'
+		    'generated conformations. A higher number means minimize\n'
+		    'more loosely.']
+	    ],
+	Hbox:[ columns:3, extendH:1, flushLeft:1, resizeH:1, 
+	    Separator:[extendH:1, flushLeft:1, resizeH:1],
+	    Label:[text:'Output'],
+	    Separator:[extendH:1, flushLeft:1, resizeH:1]
+	],
+	Hbox: [ columns:3, flushLeft:1, 
+	    Checkbox:[value:THREE_BODY_CSEARCH4_DEFAULTS.outfiles,
+		title:'Output as files:', name:'outfiles', bubbleHelp:
+		'Split up each entry in the Output Database into three files:\n'
+		'A PDB each for Receptors 1 and 2, and an SDF containing\n'
+		'Core1 + linker + Core2', onTrigger: 'return'
+	    ],
+	    Text:[
+		name: 'filedir', title:'Output directory:', len:40,
+		resizeH:1, bubbleHelp:
+		'Directory where the output PDBs and SDF will be saved.'
+	    ],
+	    Button:[
+		name:'br_filedir', text: 'Browse...', onTrigger: 'return',
+		bubbleHelp: 'Browse for a directory'
+	    ]
+	],
+	Hbox:[columns:2, flushLeft:1,
+	    Text:[
+		name:'dbout', title:'Output Base Filename:', len:40, extendH:1,
+		resizeH:1, bubbleHelp:
+		    'Generally, this method produces too much output for\n'
+		    'a single database. Thus, multiple output MDBs will be\n'
+		    'generated, each containing a single Protein-Protein\n'
+		    'docking pose combined with all PROTAC conformations.\n'
+		    'This Base Filename will be combined with the name of\n'
+		    'the Protein-Protein Output MDB above and with the number\n'
+		    'of the entry of the Protein-Protein Docking pose.\n\n'
+		    'The exact filename specified here will, after the\n'
+		    'calculation finishes, contain "interesting" poses from\n'
+		    'all individual output MDBs.'
+	    ],
+	    Button:[
+		name:'dbbrowse_out', text:'Browse...',onTrigger:'return'
+	    ]
+	],
+//	Hbox: [columns:3, centerH:1, spacingH:'medium',
+	Hbox: [columns:4, centerH:1, spacingH:'medium',
+	    Checkbox:[name:'dbvopen_out', text:'Open in Database Viewer'],
+	    Checkbox:[name:'min_out', text: 'Minimize Final Results',
+		bubbleHelp:
+		'For the generated ternary complexes that pass the filters\n'
+		'specified above, perform a restrained minimization, where\n'
+		'the backbone atoms of each protein are kept as a rigid body,\n'
+		'the sidechain atoms of each protein are free to minimize,\n'
+		'and the PROTAC molecule is free to minimize. This option\n'
+		'will alleviate clashing introduced by superposing ligand\n'
+		'and protein conformations generated in separate simulations.\n'
+		'(Minimized conformations are also rescored.)'
+	    ],
+	    Checkbox: [name:'keep_int', text: 'Keep Intermediate Results',
+		onTrigger: 'return', bubbleHelp:
+		'Keep files containing ternary complexes that did not pass\n'
+		'one of the filters specified above.'
+	    ],
+	    Checkbox: [name:'clust', text: 'Cluster Results', bubbleHelp:
+		'Cluster Output Ternary Complexes. First, all unique protein\n'
+		'poses are identified and clustered by alpha carbon RMSD at a\n'
+		'threshold of 10 A. Next, all unique PROTAC poses are\n'
+		'identified and clustered at a threshold of 3 A. Each ternary\n'
+		'complex is then assigned to a double-cluster (labeled L3xP10\n'
+		'in the output MDB) which details the ligand (L) and\n'
+		'protein (P) cluster to which this complex belongs to.\n'
+		'Finally, the populations of each of these double-clusters is\n'
+		'written to the column Double Cluster Population. The largest\n'
+		'value of this column can be used as a score for a particular\n'
+		'PROTAC.'
+	    ]
+	],
+	    Hbox : [
+		uniformCols: 1, center: 1,
+		shadow: 'etched-in', spacingH: 'medium',
+		Button : [
+		    name: 'saveSettings',
+		    text: 'Save Current Settings as Default', extendH: 1,
+		    onTrigger: 'validate',
+		    bubbleHelp:
+			'Save certain modified settings as new defaults.\n'
+			'The settings that are saved are:\n\n'
+			'*Perform multiple Protein-Protein Docking Runs\n'
+			'*Calculate Protein Patch Statistics\n'
+			'*Conformations\n*Max P-P contact area\n'
+			'*Ligand Core RMSD\n*Energy Window\n'
+			'*Iteration Limit\n*RMS Gradient\n'
+			'*Open in Database Viewer\n*Minimize Final Results\n'
+			'*Keep Intermediate Results\n*Cluster Results\n'
+			'*Protomers during Wash (with non-MDB PROTAC Source)\n'
+			'*Generate 3D Coordinates (with non-MDB PROTAC Source)'
+		],
+		Button : [
+		    name: 'loadSettings',
+		    text: 'Restore Defaults', extendH: 1,
+		    bubbleHelp:
+			'Restore current settings to the defaults previously\n'
+			'saved via Save Current Settings as Default'
+		],
+		Button : [
+		    name: 'stdSettings',
+		    text: 'Original Settings', extendH: 1,
+		    bubbleHelp:
+			'Restore settings to their original values'
+		]
+	    ]
+    ];
+
+    wkey = WindowCreate panel;
+    apt WindowSetAttr [wkey, apt tag [['pp_in', 'br_pp_in', 'filedir',
+	'br_filedir'], [[[sensitive:0]]]]];
+    WindowSetData[wkey, THREE_BODY_CSEARCH4_DEFAULTS];
+    loadSettings wkey;		// Populate with RC Values
+    WindowSetData [wkey, [filedir:cd[]]];
+    WindowShow wkey;
+
+    loop
+	local [vals, trig] = WindowWait wkey;
+
+	if trig == 'pregen' then
+	    WindowSetData [wkey, [do_pp:0]];
+	    apt WindowSetAttr [wkey, apt tag [['pp_in', 'br_pp_in'], [nest
+		[sensitive:1]]]];
+	    apt WindowSetAttr [wkey, apt tag [['rc1', 'rc2', 'do_pp_out',
+		'bias', 'br_rc1', 'br_rc2', 'br_do_pp_out'],[[[sensitive:0]]]]];
+
+	elseif trig == 'bias' and vals.bias == 0 then
+	    local ans = YesNo
+		'The results from Method 4B are most accurate when multiple\n'
+		'Protein-Protein Docking Runs are performed. Are you sure you\n'
+		'wish to disable this option?';
+	    if ans == 0 then
+		WindowSetData [wkey, [bias:1]];
+	    else
+		WindowSetData [wkey, [bias:0]];
+	    endif
+
+	elseif trig == 'keep_int' and vals.keep_int == 1 then
+	    ans = YesNo
+		'This setting can potentially produce 10GB+ of data in the\n'
+		'Current Working Directory. Continue?';
+	    if ans == 0 then
+		WindowSetData [wkey, [keep_int:0]];
+	    else
+		WindowSetData [wkey, [keep_int:1]];
+	    endif
+
+	elseif trig == 'saveSettings' then
+	    saveSettings vals;
+
+	elseif trig == 'loadSettings' then
+	    loadSettings wkey;
+
+	elseif trig == 'stdSettings' then
+	    stdSettings wkey;
+
+	elseif trig == 'do_pp' then
+	    WindowSetData [wkey, [pregen:0]];
+	    apt WindowSetAttr [wkey, apt tag [['pp_in', 'br_pp_in'], [nest
+		[sensitive:0]]]];
+	    apt WindowSetAttr [wkey, apt tag [['rc1', 'rc2', 'do_pp_out',
+		'bias', 'br_rc1', 'br_rc2', 'br_do_pp_out'],[[[sensitive:1]]]]];
+
+	elseif trig == 'br_rc1' then
+	    local frec1 = FilePrompt [filter: ['*.pdb', '*.moe'],title:
+		'Specify Receptor 1 and its binding ligand'];
+	    if not isnull frec1 then
+		local pdata = SystemPush[];
+		local c = ReadAuto frec1;
+		if isnull _Atoms 'lig' then
+		    Warning 'Ensure your file contains the binding ligand';
+		    oDestroy c;
+		    SystemPop pdata;
+		    continue;
+		endif
+		if isnull _Atoms 'rec' then
+		    Warning 'Ensure your file contains Receptor 1';
+		    oDestroy c;
+		    SystemPop pdata;
+		    continue;
+		endif
+		oDestroy c;
+		SystemPop pdata;
+		WindowSetData [wkey, [rc1:frec1]];
+		continue;
+	    endif
+
+	elseif trig == 'br_rc2' then
+	    local frec2 = FilePrompt [filter: ['*.pdb', '*.moe'],title:
+		'Specify Receptor 2 and its binding ligand'];
+	    if not isnull frec2 then
+		pdata = SystemPush[];
+		c = ReadAuto frec2;
+		if isnull _Atoms 'lig' then
+		    Warning 'Ensure your file contains the binding ligand';
+		    oDestroy c;
+		    SystemPop pdata;
+		    continue;
+		endif
+		if isnull _Atoms 'rec' then
+		    Warning 'Ensure your file contains Receptor 2';
+		    oDestroy c;
+		    SystemPop pdata;
+		    continue;
+		endif
+		oDestroy c;
+		SystemPop pdata;
+		WindowSetData [wkey, [rc2:frec2]];
+		continue;
+	    endif
+
+	elseif trig == 'br_do_pp_out' then
+	    local outp = FilePrompt [mode:'saveAs', filter: '*.mdb',
+		title: 'Specify the output database'];
+	    if not isnull outp then
+		WindowSetData [wkey, [do_pp_out:outp]];
+	    endif
+
+	elseif trig == 'br_inmdb' then
+	    outp = FilePrompt [title:
+		'Specify a file containing PROTACs (MDB, SDF, or SMILES)'];
+	    if notnull outp then
+		WindowSetData [wkey, [inmdb:outp]];
+	    endif
+	    if isfalse _is_file_MDB outp then
+		apt WindowSetAttr [wkey, apt tag [['prot', 'threed'],
+		    [[[collapse:0]]]]];
+	    else
+		apt WindowSetAttr [wkey, apt tag [['prot', 'threed'],
+		    [[[collapse:1]]]]];
+	    endif
+
+	elseif trig == 'br_pp_in' then
+	    outp = FilePrompt [filter: '*.mdb', title:
+		'Specify a database containing P-P Dock results'];
+	    if not isnull outp then
+		local [outp_f, outp_t] = db_Fields outp;
+		if (min apt m_join [['mol', 'receptor'], [outp_f]]) == 0 then
+		    Warning 'This MDB does not appear to have been produced\n'
+			    'by MOE\'s Protein-Protein Docking algorithm.';
+		    continue;
+		endif
+
+		    // Check to ensure that 'mol' and 'receptor' have both
+		    // protein and ligand atoms
+
+		pdata = SystemPush[];
+		local record = db_Read [outp, first db_Entries outp];
+		local cmol = mol_Create record.mol;
+		if isnull _Atoms 'rec' or isnull _Atoms 'lig' then
+		    Warning'Both proteins in the pregenerated Protein-Protein\n'
+			   'MDB must contain a ligand in a pocket.';
+		    oDestroy cmol;
+		    SystemPop pdata;
+		    continue;
+		endif
+
+		oDestroy cmol;
+		local crec = mol_Create record.receptor;
+		if isnull _Atoms 'rec' or isnull _Atoms 'lig' then
+		    Warning'Both proteins in the pregenerated Protein-Protein\n'
+			   'MDB must contain a ligand in a pocket.';
+		    oDestroy crec;
+		    SystemPop pdata;
+		    continue;
+		endif
+
+		oDestroy crec;
+		SystemPop pdata;
+		WindowSetData [wkey, [pp_in:outp]];
+	    endif
+
+	elseif trig == 'outfiles' then
+	    WindowSetAttr [wkey, [filedir:[sensitive:vals.outfiles]]];
+	    WindowSetAttr [wkey, [br_filedir:[sensitive:vals.outfiles]]];
+
+	elseif trig == 'cmethod' then
+	    if vals.cmethod == 'LowModeMD' or vals.cmethod == 'Stochastic' then
+		apt WindowSetAttr [wkey, apt tag [['cutoff', 'maxit', 'gtest'],
+		    [[[sensitive:1]]]]];
+	    else
+		apt WindowSetAttr [wkey, apt tag [['cutoff', 'maxit', 'gtest'],
+		    [[[sensitive:0]]]]];
+	    endif
+
+	elseif trig == 'dbbrowse_out' then 
+	    outp = FilePrompt [mode:'saveAs', filter: '*.mdb',
+		title: 'Specify the output database'];
+	    if not isnull outp then
+		WindowSetData [wkey, [dbout:outp]];
+	    endif
+
+	elseif trig == 'br_filedir' then
+	    local filedir = FilePrompt [
+		title:'Directory where output PDBs & SDF will be saved',
+		mode:'dir'
+	    ];
+	    if not isnull filedir then
+		WindowSetData [wkey, [filedir:filedir]];
+	    endif
+
+	    // For either "OK" or "Generate Batch File" do some sanity checks
+	    // before proceeding.
+
+	elseif trig == 'shell' and vals.shell == 'Generate Batch File' then
+
+	    local [issane, newvals] = sanity_checks vals;
+	    if issane then
+		vals = newvals;
+		local [tid, code] = task_wfork [master: 'parent'];
+		if code === 'kill' then
+		    continue;
+		else
+		    generate_batch_file vals;
+		endif
+	    endif
+
+	elseif trig == 'shell' and vals.shell == 'OK' then 
+
+	    [issane, newvals] = sanity_checks vals;
+	    if issane then
+		vals = newvals;
+		WindowShow [wkey, 0];
+		three_body_csearch_method4B vals;
+	    endif
+	    WindowShow [wkey, 1];
+	endif
+    endloop
+
+    WindowDestroy wkey;
+
+endfunction
+//------------------------------------------------------------------------------
+// Set RC Values based on the values currently on the panel
+//------------------------------------------------------------------------------
+local function saveSettings v
+    SetRC ['Method4B.prot', v.prot];
+    SetRCBoolean ['Method4B.threed', v.threed];
+    SetRCBoolean ['Method4B.bias', v.bias];
+    SetRCBoolean ['Method4B.patches', v.patches];
+    SetRC ['Method4B.cmethod', v.cmethod];
+    SetRCNumber ['Method4B.totsa', v.totsa];
+    SetRCNumber ['Method4B.corermsd', v.corermsd];
+    SetRCNumber ['Method4B.cutoff', v.cutoff];
+    SetRCNumber ['Method4B.maxit', v.maxit];
+    SetRCNumber ['Method4B.gtest', v.gtest];
+    SetRCBoolean ['Method4B.dbvopen_out', v.dbvopen_out];
+    SetRCBoolean ['Method4B.min_out', v.min_out];
+    SetRCBoolean ['Method4B.keep_int', v.keep_int];
+    SetRCBoolean ['Method4B.clust', v.clust];
+    Warning 'Current Settings saved as Default';
+endfunction
+//------------------------------------------------------------------------------
+// Set the panel based on RC values previously stored
+//------------------------------------------------------------------------------
+local function loadSettings wkey
+    local rc = FindRC 'Method4B.*';	// Always tokens
+    if notnull rc.'Method4B.prot' then
+	WindowSetData [wkey, [prot:rc.'Method4B.prot']];
+    endif
+    if notnull rc.'Method4B.threed' then
+	WindowSetData [wkey, [threed:toint rc.'Method4B.threed']];
+    endif
+    if notnull rc.'Method4B.bias' then
+	WindowSetData [wkey, [bias:toint rc.'Method4B.bias']];
+    endif
+    if notnull rc.'Method4B.patches' then
+	WindowSetData [wkey, [patches:toint rc.'Method4B.patches']];
+    endif
+    if notnull rc.'Method4B.cmethod' then
+	WindowSetData [wkey, [cmethod:rc.'Method4B.cmethod']];
+	if rc.'Method4B.cmethod' === 'As-Is' then
+	    apt WindowSetAttr [wkey, apt tag [['cutoff', 'maxit', 'gtest'],
+		[[[sensitive:0]]]]];
+	else
+	    apt WindowSetAttr [wkey, apt tag [['cutoff', 'maxit', 'gtest'],
+		[[[sensitive:1]]]]];
+	endif
+    endif
+    if notnull rc.'Method4B.totsa' then
+	WindowSetData [wkey, [totsa:tonum rc.'Method4B.totsa']];
+    endif
+    if notnull rc.'Method4B.corermsd' then
+	WindowSetData [wkey, [corermsd:tonum rc.'Method4B.corermsd']];
+    endif
+    if notnull rc.'Method4B.cutoff' then
+	WindowSetData [wkey, [cutoff:tonum rc.'Method4B.cutoff']];
+    endif
+    if notnull rc.'Method4B.maxit' then
+	WindowSetData [wkey, [maxit:tonum rc.'Method4B.maxit']];
+    endif
+    if notnull rc.'Method4B.gtest' then
+	WindowSetData [wkey, [gtest:tonum rc.'Method4B.gtest']];
+    endif
+    if notnull rc.'Method4B.dbvopen_out' then
+	WindowSetData [wkey, [dbvopen_out:toint rc.'Method4B.dbvopen_out']];
+    endif
+    if notnull rc.'Method4B.min_out' then
+	WindowSetData [wkey, [min_out:toint rc.'Method4B.min_out']];
+    endif
+    if notnull rc.'Method4B.keep_int' then
+	WindowSetData [wkey, [keep_int:toint rc.'Method4B.keep_int']];
+    endif
+    if notnull rc.'Method4B.clust' then
+	WindowSetData [wkey, [clust:toint rc.'Method4B.clust']];
+    endif
+endfunction
+//------------------------------------------------------------------------------
+// Reset the panel to Method 4B Defaults
+//------------------------------------------------------------------------------
+local function stdSettings wkey
+    WindowSetData [wkey, THREE_BODY_CSEARCH4_DEFAULTS];
+    WindowSetData [wkey, [cmethod:'LowModeMD']];
+    apt WindowSetAttr [wkey, apt tag [['cutoff', 'maxit', 'gtest'],
+	[[[sensitive:1]]]]];
+    app DelRC tags FindRC 'Method4B.*';
+    Warning 'Original Method 4B Settings restored';    
+endfunction
+//------------------------------------------------------------------------------
+// Generate a batch file based on the settings in the GUI
+//------------------------------------------------------------------------------
+local function generate_batch_file opt
+
+	// Various categories of tags that differ in how they get set
+
+    const IF_DIFF_DEFAULT = ['cutoff', 'maxit', 'gtest', 'outfiles', 'patches',
+	'do_pp', 'min_out', 'keep_int', 'totsa', 'corermsd', 'pregen', 'bias',
+	'clust', 'threed'];
+    const IF_DIFF_DEFAULT_TOK = ['dbout', 'do_pp_out', 'prot'];
+
+	// Pop open a quickie panel to get the batch file inputs. Many of
+	// the sanity checks have already been done before getting to this point
+
+    local panel = [
+	title:'Save Batch SVL File',
+	windowName:'Save Batch SVL File',
+	name:'shell', onTrigger:['return', 'exit'],
+	text:['OK', 'Cancel'],
+	Hbox:[ columns:2,
+	    FSBText: [
+		name:'batchfile', title: 'Save Batch File to: ', len: 60,
+		type: 'char', mode: 'saveAs',
+		value: tok_cat ['method_4B_batch_', fbase ftail opt.dbout,
+			'.svl']
+		],
+	    Button: [name: 'br_bf', text: 'Browse...', onTrigger: 'return']
+	],
+	Hbox:[ columns:2, spacingH:'medium',
+	    Checkbox: [name:'default_pot', onTrigger: 'return',
+		text: 'Use Default Forcefield & Potential Settings',
+		checkboxStyle: 'roundRadioMark', bubbleHelp:
+		    'Use the MOE Default settings (Amber10:EHT with R-Field '
+		    'Solvation method)\nto generate Conformations (only '
+		    'available with LowModeMD).'
+		],
+	    Checkbox: [name:'elebuffer_pot', onTrigger: 'return',
+		text: 'Use Born & Electrostatic Buffer',
+		checkboxStyle: 'roundRadioMark', bubbleHelp:
+		    'Use Born Solvation model (augmented with a buffer to the '
+		    'electrostatics)\nto generate Conformations. This option '
+		    'should tend to yield\nmore extended conformations (only '
+		    'available with LowModeMD).'
+		]
+	]];
+
+    local wkey = WindowCreate panel;
+    if opt.cmethod == 'As-Is' then
+	apt WindowSetAttr [wkey, apt tag [['default_pot', 'elebuffer_pot'],
+	    [[[sensitive:0]]]]];
+    else
+	WindowSetData [wkey, [default_pot:1]];
+    endif
+    WindowShow wkey;
+    loop
+	local [v, t] = WindowWait wkey;
+	if t === 'br_bf' then
+	    local bf = FilePrompt [title: 'Specify where to save the batchfile',
+		mode: 'saveAs', name: v.batchfile];
+	    if not isnull bf then
+		WindowSetData [wkey, [batchfile:bf]];
+	    endif
+	elseif t === 'elebuffer_pot' then
+	    WindowSetData [wkey, [default_pot:not v.elebuffer_pot]];
+	elseif t === 'default_pot' then
+	    WindowSetData [wkey, [elebuffer_pot:not v.default_pot]];
+	elseif v.(t) === 'Cancel' then
+	    WindowDestroy wkey;
+	    return[];
+	elseif v.(t) === 'OK' then
+	    if v.batchfile == '' then
+		Warning 'Please specify a name for the Batch File';
+		continue;
+	    endif
+	    break;
+	endif
+    endloop
+
+    local fn = fopenw v.batchfile;
+
+    fwrite [fn,
+	'#!/bin/sh\n#if 0\n$MOE/bin/moebatch -run $0 $*\nexit\n#endif\n'
+	'#svl\n\n'
+    ];
+    fwrite [fn, twrite ['// Instructions: moebatch -mpu N -load {} -run {}\n',
+	'three_body_csearch_method4B.svl', v.batchfile]];
+    fwrite [fn, twrite ['//      [N in -mpu N is the number of parallel '
+	'processes (& MOE tokens) to use]\n\n']];
+    fwrite [fn, 'function three_body_csearch_method4B;\n\n'];
+    fwrite [fn, 'local function main []\n'];
+    if v.elebuffer_pot then
+	fwrite [fn, '    pot_Setup [solEnable:1, eleDist:0, eleBuffer:1];\n'];
+    endif
+    fwrite [fn, '    three_body_csearch_method4B ['];
+
+    local defaults = tagcat [THREE_BODY_CSEARCH4_DEFAULTS, CSEARCH_DEFAULTS];
+    local vals1 = tagget [opt, IF_DIFF_DEFAULT];
+    local m_1 = tagget [defaults, IF_DIFF_DEFAULT] <> vals1;
+    local tags1 = IF_DIFF_DEFAULT|m_1;
+    local diff1 = vals1|m_1;
+    local vals3 = tagget [opt, IF_DIFF_DEFAULT_TOK];
+    local m_3 = tagget [defaults, IF_DIFF_DEFAULT_TOK] <> vals3;
+    local diff3 = vals3|m_3;
+    local tags3 = IF_DIFF_DEFAULT_TOK|m_3;
+
+    if opt.do_pp then
+	fwrite [fn, twrite ['{}:\'{}\', ', 'rc1', opt.rc1]];
+	fwrite [fn, twrite ['{}:\'{}\', ', 'rc2', opt.rc2]];
+    else
+	fwrite [fn, twrite ['{}:\'{}\', ', 'pp_in', opt.pp_in]];
+    endif
+    fwrite [fn, twrite ['{}:\'{}\', ', 'inmdb', opt.inmdb]];
+    if opt.outfiles == 1 then
+	fwrite [fn, [twrite ['filedir:\'{}\', ', opt.filedir]]];
+    endif
+    fwrite [fn, twrite ['cmethod:\'{}\', ', opt.cmethod]];
+    local i = 1;
+    if not isnull diff1 then
+	while i <= length diff1 loop
+	    fwrite [fn, [twrite ['{}:{}, ', tags1(i), diff1(i)]]];
+	    i = i + 1;
+	endloop
+    endif
+    i = 1;
+    if not isnull diff3 then
+	while i <= length diff3 loop
+	    fwrite [fn, [twrite ['{}:\'{}\', ', tags3(i), diff3(i)]]];
+	    i = i + 1;
+	endloop
+    endif
+    fwrite [fn, twrite ['{}:{}];\n', 'dbvopen_out', '0']];
+    fwrite [fn, 'endfunction'];
+    fclose fn;
+    Warning twrite ['Batch file saved to {}', v.batchfile];
+    WindowDestroy wkey;
+
+endfunction
+//------------------------------------------------------------------------------
+#eof
