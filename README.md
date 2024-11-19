@@ -1,4 +1,33 @@
 # PROTAC ternary complex benchmark
+More details on how to run the protocols can be found here:
+[link](https://www.sciencedirect.com/science/article/pii/S0076687923002288?via%3Dihub#sec0070)
+
+If you decide to use the benchmark or protocols, please cite one of these papers:
+```
+@article{Benchmark Ternary complex prediction,
+	title={Benchmarking methods for PROTAC ternary complex structure prediction},
+	volume={64},
+	DOI={10.1021/acs.jcim.4c00426},
+	number={15},
+	journal={Journal of Chemical Information and Modeling},
+	author={Rovers, Evianne and Schapira, Matthieu},
+	year={2024},
+	month={Aug},
+	pages={6162–6173}}
+
+@article{Methods,
+	title = {Chapter Ten - Methods for computer-assisted PROTAC design},
+	series = {Methods in Enzymology},
+	publisher = {Academic Press},
+	volume = {690},
+	pages = {311-340},
+	year = {2023},
+	booktitle = {Modern Methods of Drug Design and Development},
+	issn = {0076-6879},
+	doi = {https://doi.org/10.1016/bs.mie.2023.06.020},
+	url = {https://www.sciencedirect.com/science/article/pii/S0076687923002288},
+	author = {Evianne Rovers and Matthieu Schapira}}
+```
 
 ## Final_input:
 
